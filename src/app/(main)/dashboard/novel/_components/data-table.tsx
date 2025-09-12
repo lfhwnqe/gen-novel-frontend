@@ -200,7 +200,7 @@ export function CustomerDataTable({
               </Button>
               <Button size="sm" onClick={() => setCreateOpen(true)}>
                 <Plus className="h-4 w-4" />
-                <span className="hidden lg:inline">新增产品</span>
+                <span className="hidden lg:inline">新增作品</span>
               </Button>
             </>
           }
