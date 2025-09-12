@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 // 后端统一响应包装
 interface ApiResponse<T> {
@@ -37,6 +38,12 @@ const fetcher = async (url: string) => {
 export default function NovelDetailPage() {
   const params = useParams();
   const novelId = params?.novelId as string;
+
+  // 生成内容相关状态
+  const [prompt, setPrompt] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const [genError, setGenError] = React.useState<string | null>(null);
+  const [genResult, setGenResult] = React.useState<unknown | null>(null);
 
   const {
     data: work,
@@ -82,6 +89,41 @@ export default function NovelDetailPage() {
       </div>
     );
   }
+
+  // 触发生成内容
+  const handleGenerate = async () => {
+    const value = prompt.trim();
+    if (!value) {
+      setGenError("请输入生成提示（prompt）");
+      return;
+    }
+    setSubmitting(true);
+    setGenError(null);
+    setGenResult(null);
+    try {
+      const res = await fetchWithAuth(`/api/v1/novels/generation/scenario-outline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: value, novelId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = json?.message?.message || `生成失败: ${res.status} ${res.statusText}`;
+        throw new Error(typeof message === "string" ? message : "生成失败");
+      }
+      if (json && typeof json === "object" && "success" in json) {
+        // 兼容统一响应包装
+
+        setGenResult(json.data ?? json);
+      } else {
+        setGenResult(json);
+      }
+    } catch (e: any) {
+      setGenError(e?.message || "生成失败");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="container mx-auto py-6">
@@ -145,6 +187,49 @@ export default function NovelDetailPage() {
                   <div className="mt-1 text-sm whitespace-pre-wrap">{work.description}</div>
                 </div>
               )}
+              {/* 生成内容操作区 */}
+              <div className="md:col-span-2">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                    生成提示（prompt）
+                  </Label>
+                  <Textarea
+                    placeholder="例如：A sci-fi detective story on Mars"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                  />
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <Button onClick={handleGenerate} disabled={submitting}>
+                    {submitting ? "生成中..." : "生成内容"}
+                  </Button>
+                  <span className="text-muted-foreground text-xs">
+                    将提交到 `/api/v1/novels/generation/scenario-outline`
+                  </span>
+                </div>
+                {genError && (
+                  <Alert className="mt-3" variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{genError}</AlertDescription>
+                  </Alert>
+                )}
+                {genResult && (
+                  <div className="mt-3">
+                    <Label className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                      生成结果
+                    </Label>
+                    <pre className="bg-muted/50 mt-2 max-h-80 overflow-auto rounded-md border p-3 text-xs">
+                      {(() => {
+                        try {
+                          return JSON.stringify(genResult, null, 2);
+                        } catch {
+                          return String(genResult);
+                        }
+                      })()}
+                    </pre>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <Alert>
