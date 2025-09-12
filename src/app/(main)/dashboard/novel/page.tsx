@@ -93,7 +93,7 @@ export default function Page() {
     error,
     isLoading,
     mutate,
-  } = useSWR(enabled ? `/api/v1/products?${paramsString}` : null, fetcher, {
+  } = useSWR(enabled ? `/api/v1/novels/works?${paramsString}` : null, fetcher, {
     keepPreviousData: true,
     shouldRetryOnError: false,
   });

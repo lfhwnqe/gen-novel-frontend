@@ -63,8 +63,8 @@ const baseSidebarItems: NavGroup[] = [
       //   icon: LayoutDashboard,
       // },
       {
-        title: "产品管理",
-        url: "/dashboard/products",
+        title: "小说管理",
+        url: "/dashboard/novel",
         icon: LayoutDashboard,
         roles: [Role.ADMIN, Role.SUPER_ADMIN], // 只有管理员可以访问
       },
