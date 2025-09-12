@@ -44,6 +44,10 @@ export default function NovelDetailPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [genError, setGenError] = React.useState<string | null>(null);
   const [genResult, setGenResult] = React.useState<unknown | null>(null);
+  const [taskId, setTaskId] = React.useState<string | null>(null);
+  const [taskLoading, setTaskLoading] = React.useState(false);
+  const [taskError, setTaskError] = React.useState<string | null>(null);
+  const [taskData, setTaskData] = React.useState<unknown | null>(null);
 
   const {
     data: work,
@@ -79,6 +83,36 @@ export default function NovelDetailPage() {
     }
   };
 
+  // 查询任务状态
+  const fetchTaskStatus = async (id: string) => {
+    setTaskLoading(true);
+    setTaskError(null);
+    try {
+      const res = await fetchWithAuth(`/api/v1/novels/generation/tasks/${id}`, { method: "GET" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = json?.message?.message || `查询任务失败: ${res.status} ${res.statusText}`;
+        throw new Error(typeof message === "string" ? message : "查询任务失败");
+      }
+      if (json && typeof json === "object" && "success" in json) {
+        setTaskData(json.data ?? json);
+      } else {
+        setTaskData(json);
+      }
+    } catch (e: any) {
+      setTaskError(e?.message || "查询任务失败");
+    } finally {
+      setTaskLoading(false);
+    }
+  };
+
+  // 初次拿到 taskId 后自动查询一次
+  React.useEffect(() => {
+    if (taskId) {
+      void fetchTaskStatus(taskId);
+    }
+  }, [taskId]);
+
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -113,8 +147,14 @@ export default function NovelDetailPage() {
       }
       if (json && typeof json === "object" && "success" in json) {
         // 兼容统一响应包装
-
-        setGenResult(json.data ?? json);
+        const data = json.data ?? json;
+        setGenResult(data);
+        if (data && typeof data === "object" && "taskId" in data) {
+          const id = data.taskId;
+          if (typeof id === "string") {
+            setTaskId(id);
+          }
+        }
       } else {
         setGenResult(json);
       }
@@ -221,12 +261,57 @@ export default function NovelDetailPage() {
                     <pre className="bg-muted/50 mt-2 max-h-80 overflow-auto rounded-md border p-3 text-xs">
                       {(() => {
                         try {
-                          return JSON.stringify(genResult, null, 2);
+                          return JSON.stringify(genResult as any, null, 2);
                         } catch {
-                          return String(genResult);
+                          return String(genResult as any);
                         }
                       })()}
                     </pre>
+                  </div>
+                )}
+
+                {/* 任务状态展示区 */}
+                {taskId && (
+                  <div className="mt-6 space-y-2">
+                    <Label className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                      生成任务
+                    </Label>
+                    <div className="text-muted-foreground font-mono text-xs">Task ID: {taskId}</div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => fetchTaskStatus(taskId)}
+                        disabled={taskLoading}
+                      >
+                        {taskLoading ? "查询中..." : "刷新状态"}
+                      </Button>
+                      <span className="text-muted-foreground text-xs">
+                        GET `/api/v1/novels/generation/tasks/{taskId}`
+                      </span>
+                    </div>
+                    {taskError && (
+                      <Alert className="mt-2" variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{taskError}</AlertDescription>
+                      </Alert>
+                    )}
+                    {taskData && (
+                      <div className="mt-2">
+                        <Label className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                          任务返回
+                        </Label>
+                        <pre className="bg-muted/50 mt-2 max-h-80 overflow-auto rounded-md border p-3 text-xs">
+                          {(() => {
+                            try {
+                              return JSON.stringify(taskData as any, null, 2);
+                            } catch {
+                              return String(taskData as any);
+                            }
+                          })()}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
