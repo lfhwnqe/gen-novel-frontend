@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 
 import { Plus, Search, Filter, Download, Upload, EllipsisVertical } from "lucide-react";
 import { z } from "zod";
@@ -70,15 +71,12 @@ export function CustomerDataTable({
     onPageSizeChange: (size: number) => void;
   };
 }) {
+  const router = useRouter();
   const [data, setData] = React.useState(() => initialData);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const fetchWithAuth = useFetchWithAuth();
-  // 详情数据
-  const [detail, setDetail] = React.useState<Work | null>(null);
-  const [detailLoading, setDetailLoading] = React.useState(false);
   const [createOpen, setCreateOpen] = React.useState(false);
-  const [detailOpen, setDetailOpen] = React.useState(false);
   const [selectedProduct, setSelectedProduct] = React.useState<Work | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
@@ -159,11 +157,8 @@ export function CustomerDataTable({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-32">
-              <DropdownMenuItem onClick={() => setDetailOpen(true) || setSelectedProduct(row.original)}>
+              <DropdownMenuItem onClick={() => router.push(`/dashboard/novel/${row.original.novelId}`)}>
                 查看详情
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEditOpen(true) || setSelectedProduct(row.original)}>
-                编辑
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -209,30 +204,6 @@ export function CustomerDataTable({
       status: status === "all" ? undefined : status,
     });
   };
-
-  // 打开详情时，按 novelId 拉取详情
-  React.useEffect(() => {
-    const id = (selectedProduct as any)?.novelId;
-    if (!detailOpen || !id) return;
-    let ignore = false;
-    (async () => {
-      try {
-        setDetailLoading(true);
-        const res = await fetchWithAuth(`/api/v1/novels/works/${id}`);
-        if (!res.ok) throw new Error(`获取详情失败: ${res.status}`);
-        const json = await res.json();
-        const data = json && typeof json === "object" && "success" in json && json.success ? json.data : json;
-        if (!ignore) setDetail(data as Work);
-      } catch (e) {
-        if (!ignore) setDetail(null);
-      } finally {
-        if (!ignore) setDetailLoading(false);
-      }
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [detailOpen, (selectedProduct as any)?.novelId]);
 
   if (error) {
     return (
@@ -350,62 +321,6 @@ export function CustomerDataTable({
           onRefresh?.();
         }}
       />
-
-      {/* 查看作品详情 Dialog（打开时请求详情） */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>作品详情</DialogTitle>
-            <DialogDescription>查看作品的基本信息与状态。</DialogDescription>
-          </DialogHeader>
-          {!detail || detailLoading ? (
-            <div className="text-muted-foreground text-sm">{detailLoading ? "加载中..." : "无数据"}</div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <Label className="text-muted-foreground text-xs">标题</Label>
-                <div className="text-sm font-medium">{detail.title}</div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground text-xs">状态</Label>
-                <div className="text-sm">
-                  {detail.status === WorkStatus.DRAFT
-                    ? "草稿"
-                    : detail.status === WorkStatus.PUBLISHED
-                      ? "已发布"
-                      : detail.status === WorkStatus.ARCHIVED
-                        ? "已归档"
-                        : detail.status}
-                </div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground text-xs">作品ID</Label>
-                <div className="text-muted-foreground font-mono text-[11px]">{detail.novelId}</div>
-              </div>
-              {detail.createdBy && (
-                <div>
-                  <Label className="text-muted-foreground text-xs">创建人</Label>
-                  <div className="text-sm">{detail.createdBy}</div>
-                </div>
-              )}
-              <div>
-                <Label className="text-muted-foreground text-xs">创建时间</Label>
-                <div className="text-sm">{new Date(detail.createdAt).toLocaleString("zh-CN")}</div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground text-xs">更新时间</Label>
-                <div className="text-sm">{new Date(detail.updatedAt).toLocaleString("zh-CN")}</div>
-              </div>
-              {detail.description && (
-                <div className="md:col-span-2">
-                  <Label className="text-muted-foreground text-xs">描述</Label>
-                  <div className="text-sm whitespace-pre-wrap">{detail.description}</div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
