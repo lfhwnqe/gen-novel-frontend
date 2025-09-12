@@ -1,0 +1,43 @@
+## Husky v9+/v10 style: no shebang/husky.sh. Plain commands only.
+
+# If Node.js isn't available in PATH (e.g., CI or limited shells),
+# skip pre-commit checks to avoid blocking commits.
+if ! command -v node >/dev/null 2>&1; then
+  echo "[husky] node not found; skipping pre-commit checks"
+  exit 0
+fi
+
+# 1) 生成主题预设（若可用）
+if command -v ts-node >/dev/null 2>&1; then
+  ts-node --compiler-options '{"module":"CommonJS"}' src/scripts/generate-theme-presets.ts || exit 1
+else
+  echo "[husky] ts-node not found; skipping presets generation"
+fi
+
+# 2) 在统一格式化之前，若生成文件存在，先确保其包含在工作区
+if [ -f src/types/preferences/theme.ts ]; then
+  git add src/types/preferences/theme.ts
+fi
+
+# 3) 在提交前、执行全量格式化（满足“git add 之前先执行 yarn format”）
+if command -v yarn >/dev/null 2>&1; then
+  echo "[husky] running: yarn format"
+  yarn format || exit 1
+else
+  echo "[husky] yarn not found; falling back to prettier"
+  if command -v prettier >/dev/null 2>&1; then
+    prettier --write . || exit 1
+  else
+    echo "[husky] prettier not found; skipping formatting"
+  fi
+fi
+
+# 4) 将格式化后的文件加入暂存区，确保提交包含格式化修改
+git add -A
+
+# 5) 执行 lint-staged（仅作用于已暂存文件）
+if command -v lint-staged >/dev/null 2>&1; then
+  lint-staged || exit 1
+else
+  echo "[husky] lint-staged not found; skipping lint checks"
+fi
