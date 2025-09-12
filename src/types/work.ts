@@ -8,12 +8,12 @@ export enum WorkStatus {
 
 // 作品实体（可按需扩展）
 export interface Work {
-  workId?: string;
+  novelId: string;
   title: string;
   description?: string;
   status: WorkStatus;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
   createdBy?: string;
 }
 

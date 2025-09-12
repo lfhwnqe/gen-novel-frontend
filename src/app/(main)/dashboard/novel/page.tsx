@@ -7,7 +7,7 @@ import { fetchWithAuth } from "@/utils/fetch-with-auth";
 import { ChartAreaInteractive } from "./_components/chart-area-interactive";
 import { CustomerDataTable } from "./_components/data-table";
 import { SectionCards } from "./_components/section-cards";
-import { ProductType, Product } from "@/types/product";
+import { Work } from "@/types/work";
 
 // 后端统一响应包装
 interface ApiResponse<T> {
@@ -19,7 +19,7 @@ interface ApiResponse<T> {
 
 // 列表数据载荷（与后端统一返回结构对齐）
 interface CustomerListData {
-  data: Product[];
+  data: Work[];
   total: number;
   page: number;
   limit: number;
@@ -30,8 +30,6 @@ interface QueryParams {
   page?: number;
   limit?: number;
   search?: string;
-  // 产品筛选参数
-  productType?: ProductType;
   status?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
@@ -52,7 +50,7 @@ const fetcher = async (url: string) => {
   const res = await fetchWithAuth(url);
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    const message = errorData?.message?.message || `获取产品数据失败: ${res.status} ${res.statusText}`;
+    const message = errorData?.message?.message || `获取作品数据失败: ${res.status} ${res.statusText}`;
     throw new Error(message);
   }
   return (await res.json()) as ApiResponse<CustomerListData>;
@@ -133,12 +131,11 @@ export default function Page() {
   };
 
   // 仅更新表单参数，不触发请求
-  // 适配产品筛选参数：仅接收 status、productType，忽略旧的 riskLevel
+  // 作品筛选参数：仅接收 status
   const handleFilter = (filters: any) => {
     setFormParams((prev) => ({
       ...prev,
       status: filters?.status,
-      productType: filters?.productType,
       page: 1,
     }));
   };

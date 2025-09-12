@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ProductType, ProductStatus, Product } from "@/types/product";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -33,9 +32,10 @@ import { QueryActionBar } from "@/components/layouts/query-action-bar";
 import { dashboardColumns } from "./columns";
 import { sectionSchema } from "./schema";
 import { CreateProductDialog } from "./create-product-dialog";
-import { EditProductDialog } from "./edit-product-dialog";
+import { EditWorkDialog } from "./edit-work-dialog";
 import { ImportProductDialog } from "./import-product-dialog";
-import { WorkStatus } from "@/types/work";
+import { WorkStatus, type Work } from "@/types/work";
+import { useFetchWithAuth } from "@/utils/fetch-with-auth";
 
 // 客户数据表格组件
 export function CustomerDataTable({
@@ -51,7 +51,7 @@ export function CustomerDataTable({
   onCreated,
   pagination,
 }: {
-  data: Product[];
+  data: any[];
   loading?: boolean;
   error?: string | null;
   onRefresh?: () => void;
@@ -73,12 +73,13 @@ export function CustomerDataTable({
   const [data, setData] = React.useState(() => initialData);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
-  // 产品类型筛选（替换原风险等级）
-  // 使用 ALL 作为“全部类型”的哨兵值，避免 SelectItem 为空字符串
-  const [productTypeFilter, setProductTypeFilter] = React.useState<string>("ALL");
+  const fetchWithAuth = useFetchWithAuth();
+  // 详情数据
+  const [detail, setDetail] = React.useState<Work | null>(null);
+  const [detailLoading, setDetailLoading] = React.useState(false);
   const [createOpen, setCreateOpen] = React.useState(false);
   const [detailOpen, setDetailOpen] = React.useState(false);
-  const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = React.useState<Work | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
   const columns = React.useMemo<ColumnDef<any>[]>(
@@ -206,18 +207,32 @@ export function CustomerDataTable({
     setStatusFilter(status);
     onFilter?.({
       status: status === "all" ? undefined : status,
-      productType: productTypeFilter || undefined,
     });
   };
 
-  // 产品类型筛选输入变化
-  const handleProductTypeFilter = (value: string) => {
-    setProductTypeFilter(value);
-    onFilter?.({
-      status: statusFilter === "all" ? undefined : statusFilter,
-      productType: value === "ALL" ? undefined : value,
-    });
-  };
+  // 打开详情时，按 novelId 拉取详情
+  React.useEffect(() => {
+    const id = (selectedProduct as any)?.novelId;
+    if (!detailOpen || !id) return;
+    let ignore = false;
+    (async () => {
+      try {
+        setDetailLoading(true);
+        const res = await fetchWithAuth(`/api/v1/novels/works/${id}`);
+        if (!res.ok) throw new Error(`获取详情失败: ${res.status}`);
+        const json = await res.json();
+        const data = json && typeof json === "object" && "success" in json && json.success ? json.data : json;
+        if (!ignore) setDetail(data as Work);
+      } catch (e) {
+        if (!ignore) setDetail(null);
+      } finally {
+        if (!ignore) setDetailLoading(false);
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [detailOpen, (selectedProduct as any)?.novelId]);
 
   if (error) {
     return (
@@ -240,7 +255,7 @@ export function CustomerDataTable({
               <div className="relative max-w-sm min-w-[200px] flex-1">
                 <Search className="text-muted-foreground absolute top-2.5 left-2 h-4 w-4" />
                 <Input
-                  placeholder="搜索产品名称..."
+                  placeholder="搜索作品标题..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   className="pl-8"
@@ -253,21 +268,9 @@ export function CustomerDataTable({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部状态</SelectItem>
-                  <SelectItem value={ProductStatus.ACTIVE}>上架</SelectItem>
-                  <SelectItem value={ProductStatus.INACTIVE}>下架</SelectItem>
-                  <SelectItem value={ProductStatus.SUSPENDED}>暂停</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={productTypeFilter} onValueChange={handleProductTypeFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="全部类型" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">全部类型</SelectItem>
-                  <SelectItem value={ProductType.WEALTH}>理财</SelectItem>
-                  <SelectItem value={ProductType.FUND}>基金</SelectItem>
-                  <SelectItem value={ProductType.BOND}>债券</SelectItem>
-                  <SelectItem value={ProductType.INSURANCE}>保险</SelectItem>
+                  <SelectItem value={WorkStatus.DRAFT}>草稿</SelectItem>
+                  <SelectItem value={WorkStatus.PUBLISHED}>已发布</SelectItem>
+                  <SelectItem value={WorkStatus.ARCHIVED}>已归档</SelectItem>
                 </SelectContent>
               </Select>
               <Button size="sm" onClick={() => onQuery?.()}>
@@ -327,11 +330,11 @@ export function CustomerDataTable({
         }}
       />
 
-      {/* 编辑产品 Dialog */}
-      <EditProductDialog
+      {/* 编辑作品 Dialog */}
+      <EditWorkDialog
         open={editOpen}
         onOpenChange={setEditOpen}
-        product={selectedProduct}
+        work={selectedProduct as any}
         onUpdated={() => {
           onQuery?.();
           onRefresh?.();
@@ -348,71 +351,59 @@ export function CustomerDataTable({
         }}
       />
 
-      {/* 查看详情 Dialog */}
+      {/* 查看作品详情 Dialog（打开时请求详情） */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>产品详情</DialogTitle>
-            <DialogDescription>查看产品的基本信息与状态。</DialogDescription>
+            <DialogTitle>作品详情</DialogTitle>
+            <DialogDescription>查看作品的基本信息与状态。</DialogDescription>
           </DialogHeader>
-          {selectedProduct ? (
+          {!detail || detailLoading ? (
+            <div className="text-muted-foreground text-sm">{detailLoading ? "加载中..." : "无数据"}</div>
+          ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="md:col-span-2">
-                <Label className="text-muted-foreground text-xs">产品名称</Label>
-                <div className="text-sm font-medium">{selectedProduct.productName}</div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground text-xs">产品类型</Label>
-                <div className="text-sm">{selectedProduct.productType}</div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground text-xs">风险等级</Label>
-                <div className="text-sm">{selectedProduct.riskLevel}</div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground text-xs">预期年化(%)</Label>
-                <div className="text-sm">{selectedProduct.expectedReturn}%</div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground text-xs">投资金额区间</Label>
-                <div className="text-sm">
-                  {selectedProduct.minInvestment} ~ {selectedProduct.maxInvestment}
-                </div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground text-xs">期限(天)</Label>
-                <div className="text-sm">{selectedProduct.maturityPeriod}</div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground text-xs">结息日期</Label>
-                <div className="text-sm">{selectedProduct.interestPaymentDate}</div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground text-xs">销售期</Label>
-                <div className="text-sm">
-                  {selectedProduct.salesStartDate} ~ {selectedProduct.salesEndDate}
-                </div>
+                <Label className="text-muted-foreground text-xs">标题</Label>
+                <div className="text-sm font-medium">{detail.title}</div>
               </div>
               <div>
                 <Label className="text-muted-foreground text-xs">状态</Label>
-                <div className="text-sm">{selectedProduct.status}</div>
+                <div className="text-sm">
+                  {detail.status === WorkStatus.DRAFT
+                    ? "草稿"
+                    : detail.status === WorkStatus.PUBLISHED
+                      ? "已发布"
+                      : detail.status === WorkStatus.ARCHIVED
+                        ? "已归档"
+                        : detail.status}
+                </div>
               </div>
               <div>
+                <Label className="text-muted-foreground text-xs">作品ID</Label>
+                <div className="text-muted-foreground font-mono text-[11px]">{detail.novelId}</div>
+              </div>
+              {detail.createdBy && (
+                <div>
+                  <Label className="text-muted-foreground text-xs">创建人</Label>
+                  <div className="text-sm">{detail.createdBy}</div>
+                </div>
+              )}
+              <div>
                 <Label className="text-muted-foreground text-xs">创建时间</Label>
-                <div className="text-sm">{new Date(selectedProduct.createdAt).toLocaleString("zh-CN")}</div>
+                <div className="text-sm">{new Date(detail.createdAt).toLocaleString("zh-CN")}</div>
               </div>
               <div>
                 <Label className="text-muted-foreground text-xs">更新时间</Label>
-                <div className="text-sm">{new Date(selectedProduct.updatedAt).toLocaleString("zh-CN")}</div>
+                <div className="text-sm">{new Date(detail.updatedAt).toLocaleString("zh-CN")}</div>
               </div>
-              {selectedProduct.description && (
+              {detail.description && (
                 <div className="md:col-span-2">
-                  <Label className="text-muted-foreground text-xs">产品描述</Label>
-                  <div className="text-sm whitespace-pre-wrap">{selectedProduct.description}</div>
+                  <Label className="text-muted-foreground text-xs">描述</Label>
+                  <div className="text-sm whitespace-pre-wrap">{detail.description}</div>
                 </div>
               )}
             </div>
-          ) : null}
+          )}
         </DialogContent>
       </Dialog>
     </div>
