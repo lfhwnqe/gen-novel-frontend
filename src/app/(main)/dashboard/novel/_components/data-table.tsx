@@ -2,8 +2,9 @@
 
 import * as React from "react";
 
-import { Plus, Search, Filter, Download, Upload } from "lucide-react";
+import { Plus, Search, Filter, Download, Upload, EllipsisVertical } from "lucide-react";
 import { z } from "zod";
+import { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,14 @@ import { ProductType, ProductStatus, Product } from "@/types/product";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { DataTableColumnHeader } from "../../../../../components/data-table/data-table-column-header";
 
 import { DataTable as DataTableNew } from "../../../../../components/data-table/data-table";
 import { DataTablePagination } from "../../../../../components/data-table/data-table-pagination";
@@ -21,11 +30,12 @@ import { DataTableViewOptions } from "../../../../../components/data-table/data-
 import { withDndColumn } from "../../../../../components/data-table/table-utils";
 import { QueryActionBar } from "@/components/layouts/query-action-bar";
 
-import { getProductColumns, dashboardColumns } from "./columns";
+import { dashboardColumns } from "./columns";
 import { sectionSchema } from "./schema";
 import { CreateProductDialog } from "./create-product-dialog";
 import { EditProductDialog } from "./edit-product-dialog";
 import { ImportProductDialog } from "./import-product-dialog";
+import { WorkStatus } from "@/types/work";
 
 // 客户数据表格组件
 export function CustomerDataTable({
@@ -71,24 +81,102 @@ export function CustomerDataTable({
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
-  const columns = React.useMemo(
-    () =>
-      getProductColumns({
-        onViewDetail: (prod) => {
-          setSelectedProduct(prod);
-          setDetailOpen(true);
+  const columns = React.useMemo<ColumnDef<any>[]>(
+    () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <div className="flex items-center justify-center">
+            <Checkbox
+              checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+              onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+              aria-label="Select all"
+            />
+          </div>
+        ),
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center">
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={(value) => row.toggleSelected(!!value)}
+              aria-label="Select row"
+            />
+          </div>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+      {
+        accessorKey: "title",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="标题" />,
+        cell: ({ row }) => <div className="text-sm font-medium">{row.original.title}</div>,
+      },
+      {
+        accessorKey: "status",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="状态" />,
+        cell: ({ row }) => {
+          const status: string = row.original.status;
+          const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+            [WorkStatus.DRAFT]: { label: "草稿", variant: "secondary" },
+            [WorkStatus.PUBLISHED]: { label: "已发布", variant: "default" },
+            [WorkStatus.ARCHIVED]: { label: "已归档", variant: "outline" },
+          };
+          const cfg = map[status] || { label: String(status), variant: "outline" };
+          return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
         },
-        onEdit: (prod) => {
-          setSelectedProduct(prod);
-          setEditOpen(true);
+      },
+      {
+        accessorKey: "createdAt",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="创建时间" />,
+        cell: ({ row }) => {
+          const v = row.original.createdAt;
+          const date = v ? new Date(v) : null;
+          return <div className="text-muted-foreground text-xs">{date ? date.toLocaleString("zh-CN") : "-"}</div>;
         },
-      }),
+      },
+      {
+        accessorKey: "updatedAt",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="更新时间" />,
+        cell: ({ row }) => {
+          const v = row.original.updatedAt;
+          const date = v ? new Date(v) : null;
+          return <div className="text-muted-foreground text-xs">{date ? date.toLocaleString("zh-CN") : "-"}</div>;
+        },
+      },
+      {
+        id: "actions",
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
+                size="icon"
+              >
+                <EllipsisVertical />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-32">
+              <DropdownMenuItem onClick={() => setDetailOpen(true) || setSelectedProduct(row.original)}>
+                查看详情
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setEditOpen(true) || setSelectedProduct(row.original)}>
+                编辑
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+        enableSorting: false,
+        meta: { sticky: "right" },
+      },
+    ],
     [],
   );
   const table = useDataTableInstance({
     data,
     columns,
-    getRowId: (row) => row.productId,
+    getRowId: (row: any) => row?.novelId || row?.id || row?.productId,
   });
 
   // 更新数据当props变化时
