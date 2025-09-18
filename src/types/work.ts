@@ -17,6 +17,35 @@ export interface Work {
   createdBy?: string;
 }
 
+export interface Outline {
+  outlineId: string;
+  novelId?: string;
+  title?: string;
+  summary?: string;
+  content?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+}
+
+export interface Character {
+  characterId: string;
+  novelId?: string;
+  name: string;
+  role?: string;
+  traits?: string[] | string;
+  background?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+}
+
+export interface WorkDetailResponse {
+  work: Work;
+  outlines: Outline[];
+  characters: Character[];
+}
+
 // 创建作品入参
 export interface CreateWorkDto {
   title: string;
