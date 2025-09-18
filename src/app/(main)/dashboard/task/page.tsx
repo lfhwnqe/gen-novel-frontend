@@ -3,13 +3,11 @@
 import * as React from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { fetchWithAuth } from "@/utils/fetch-with-auth";
-import { ChartAreaInteractive } from "./_components/chart-area-interactive";
-import { CustomerDataTable } from "./_components/data-table";
-import { SectionCards } from "./_components/section-cards";
-import { Work } from "@/types/work";
 
-// 后端统一响应包装
+import { TaskDataTable } from "./_components/data-table";
+import { fetchWithAuth } from "@/utils/fetch-with-auth";
+import { TaskListResponse, TaskStatus } from "@/types/task";
+
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -17,61 +15,41 @@ interface ApiResponse<T> {
   message?: unknown;
 }
 
-// 列表数据载荷（与后端统一返回结构对齐）
-interface CustomerListData {
-  data: Work[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
 interface QueryParams {
   page?: number;
   limit?: number;
-  search?: string;
-  status?: string;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
+  type?: string;
+  status?: TaskStatus;
+  novelId?: string;
 }
 
-// 导出接口响应
-interface ExportResponse {
-  downloadUrl: string;
-  expireAt: string;
-  fileName: string;
-  objectKey: string;
-  bucket: string;
-  size: number;
+interface QueryFilters {
+  type?: string;
+  status?: TaskStatus;
+  novelId?: string;
 }
 
-// SWR fetcher for products data
 const fetcher = async (url: string) => {
   const res = await fetchWithAuth(url);
+  const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    const message = errorData?.message?.message || `获取作品数据失败: ${res.status} ${res.statusText}`;
-    throw new Error(message);
+    const message = json?.message?.message || json?.message || `获取任务数据失败: ${res.status} ${res.statusText}`;
+    throw new Error(typeof message === "string" ? message : "获取任务数据失败");
   }
-  return (await res.json()) as ApiResponse<CustomerListData>;
+  if (json && typeof json === "object" && "success" in json) {
+    return (json as ApiResponse<TaskListResponse>).data;
+  }
+  return json as TaskListResponse;
 };
 
-export default function Page() {
-  // 提交后用于请求的参数
+export default function TaskPage() {
+  const [enabled, setEnabled] = React.useState(false);
   const [queryParams, setQueryParams] = React.useState<QueryParams>({
     page: 1,
     limit: 10,
   });
-  // 表单编辑中的待提交参数（不触发请求）
-  const [formParams, setFormParams] = React.useState<QueryParams>({
-    page: 1,
-    limit: 10,
-  });
-  // 是否允许发起查询
-  const [enabled, setEnabled] = React.useState(false);
-  const [exporting, setExporting] = React.useState(false);
+  const [filters, setFilters] = React.useState<QueryFilters>({});
 
-  // 构建请求 URL
   const paramsString = React.useMemo(() => {
     const sp = new URLSearchParams();
     Object.entries(queryParams).forEach(([key, value]) => {
@@ -82,15 +60,20 @@ export default function Page() {
     return sp.toString();
   }, [queryParams]);
 
-  const {
-    data: result,
-    error,
-    isLoading,
-    mutate,
-  } = useSWR(enabled ? `/api/v1/novels/generation/tasks?${paramsString}` : null, fetcher, {
-    keepPreviousData: true,
-    shouldRetryOnError: false,
-  });
+  const { data, error, isLoading, mutate } = useSWR(
+    enabled ? `/api/v1/novels/generation/tasks?${paramsString}` : null,
+    fetcher,
+    {
+      keepPreviousData: true,
+      shouldRetryOnError: false,
+    },
+  );
+
+  React.useEffect(() => {
+    if (!enabled) {
+      setEnabled(true);
+    }
+  }, [enabled]);
 
   React.useEffect(() => {
     if (error) {
@@ -98,108 +81,69 @@ export default function Page() {
     }
   }, [error]);
 
-  // 注意：后端返回为 { success, data: { data: Product[], total, page, limit, totalPages } }
-  const products = result?.data?.data ?? [];
-  const total = result?.data?.total ?? 0;
-  const page = result?.data?.page ?? queryParams.page ?? 1;
-  const limit = result?.data?.limit ?? queryParams.limit ?? 10;
-  const totalPages = result?.data?.totalPages ?? (limit ? Math.max(1, Math.ceil(total / limit)) : 1);
+  const tasks = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const page = data?.page ?? queryParams.page ?? 1;
+  const limit = data?.limit ?? queryParams.limit ?? 10;
+  const totalPages = data?.totalPages ?? (limit ? Math.max(1, Math.ceil(total / limit)) : 1);
 
   const handleRefresh = () => {
     if (enabled) mutate();
   };
 
-  // 分页交互：页码变化（1-based）
   const handlePageChange = (nextPage: number) => {
-    setQueryParams((prev) => ({ ...(prev || {}), page: Math.max(1, nextPage) }));
+    setQueryParams((prev) => {
+      const next = { ...(prev || {}), page: Math.max(1, nextPage) };
+      return next;
+    });
     setEnabled(true);
   };
 
-  // 分页交互：每页数量变化
   const handlePageSizeChange = (nextSize: number) => {
-    setQueryParams((prev) => ({ ...(prev || {}), limit: nextSize, page: 1 }));
+    setQueryParams((prev) => {
+      const next = { ...(prev || {}), limit: nextSize, page: 1 };
+      return next;
+    });
     setEnabled(true);
   };
 
-  // 仅更新表单参数，不触发请求
-  const handleSearch = (query: string) => {
-    setFormParams((prev) => ({ ...prev, search: query, page: 1 }));
+  const handleFilterChange = (partial: Partial<QueryFilters>) => {
+    setFilters((prev) => {
+      const next = { ...(prev || {}), ...partial } as QueryFilters;
+      const cleanedEntries = Object.entries(next).filter(([, value]) => value !== undefined && value !== "");
+      return Object.fromEntries(cleanedEntries) as QueryFilters;
+    });
   };
 
-  // 仅更新表单参数，不触发请求
-  // 作品筛选参数：仅接收 status
-  const handleFilter = (filters: any) => {
-    setFormParams((prev) => ({
-      ...prev,
-      status: filters?.status,
-      page: 1,
-    }));
-  };
-
-  // 点击“查询”按钮时提交表单参数并发起请求
   const handleQuery = () => {
-    setQueryParams(formParams);
-    setEnabled(true);
-  };
-
-  // 导出（按当前表单筛选条件）
-  const handleExport = async () => {
-    try {
-      setExporting(true);
-      const sp = new URLSearchParams();
-      Object.entries(formParams).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== "") {
-          sp.append(key, value.toString());
+    setQueryParams((prev) => {
+      const next: QueryParams = {
+        ...(prev || {}),
+        page: 1,
+        type: filters.type,
+        status: filters.status,
+        novelId: filters.novelId,
+      };
+      Object.keys(next).forEach((key) => {
+        const value = next[key as keyof QueryParams];
+        if (value === undefined || value === "") {
+          delete next[key as keyof QueryParams];
         }
       });
-      const url = `/api/v1/products/export${sp.toString() ? `?${sp.toString()}` : ""}`;
-      const res = await fetchWithAuth(url, { method: "GET" });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}) as any);
-        const message =
-          errorData?.message?.message ||
-          errorData?.message ||
-          errorData?.error ||
-          "" ||
-          `导出失败: ${res.status} ${res.statusText}`;
-        throw new Error(message);
-      }
-      const json = await res.json();
-      const payload: ExportResponse | undefined =
-        json && typeof json === "object" && "success" in json && "data" in json
-          ? (json.data as ExportResponse)
-          : (json as ExportResponse);
-      if (!payload?.downloadUrl) {
-        throw new Error("导出接口未返回下载链接");
-      }
-      const a = document.createElement("a");
-      a.href = payload.downloadUrl;
-      a.download = payload.fileName || "products.xlsx";
-      a.target = "_blank";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      toast.success(`已开始下载：${payload.fileName || "products.xlsx"}`);
-    } catch (err: any) {
-      toast.error(err?.message || "导出失败，请稍后重试");
-    } finally {
-      setExporting(false);
-    }
+      return next;
+    });
+    setEnabled(true);
   };
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      {/* <SectionCards />
-      <ChartAreaInteractive /> */}
-      <CustomerDataTable
-        data={products}
+      <TaskDataTable
+        data={tasks}
         loading={isLoading}
-        onRefresh={handleRefresh}
-        onSearch={handleSearch}
-        onFilter={handleFilter}
+        filters={filters}
+        onFilterChange={handleFilterChange}
         onQuery={handleQuery}
-        onExport={handleExport}
-        exporting={exporting}
+        onRefresh={handleRefresh}
         pagination={{
           page,
           limit,

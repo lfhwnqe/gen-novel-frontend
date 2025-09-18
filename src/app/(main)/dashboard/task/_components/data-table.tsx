@@ -1,186 +1,158 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-
-import { Plus, Search, Filter, Download, Upload, EllipsisVertical } from "lucide-react";
-import { z } from "zod";
 import { ColumnDef } from "@tanstack/react-table";
+import { Filter, RefreshCw, Search } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { DataTableColumnHeader } from "../../../../../components/data-table/data-table-column-header";
-
-import { DataTable as DataTableNew } from "../../../../../components/data-table/data-table";
+import { DataTable as BaseDataTable } from "../../../../../components/data-table/data-table";
 import { DataTablePagination } from "../../../../../components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "../../../../../components/data-table/data-table-view-options";
-import { withDndColumn } from "../../../../../components/data-table/table-utils";
 import { QueryActionBar } from "@/components/layouts/query-action-bar";
+import { useDataTableInstance } from "@/hooks/use-data-table-instance";
+import { TaskItem, TaskStatus, TASK_STATUSES } from "@/types/task";
 
-import { dashboardColumns } from "./columns";
-import { sectionSchema } from "./schema";
-import { CreateProductDialog } from "./create-product-dialog";
-import { EditWorkDialog } from "./edit-work-dialog";
-import { ImportProductDialog } from "./import-product-dialog";
-import { WorkStatus, type Work } from "@/types/work";
-import { useFetchWithAuth } from "@/utils/fetch-with-auth";
+const statusConfig: Record<
+  TaskStatus,
+  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
+> = {
+  queued: { label: "排队中", variant: "outline" },
+  running: { label: "运行中", variant: "secondary" },
+  success: { label: "成功", variant: "default" },
+  failed: { label: "失败", variant: "destructive" },
+};
 
-// 客户数据表格组件
-export function CustomerDataTable({
-  data: initialData,
-  loading = false,
-  error = null,
-  onRefresh,
-  onSearch,
-  onFilter,
-  onQuery,
-  onExport,
-  exporting,
-  onCreated,
-  pagination,
-}: {
-  data: any[];
+type TaskFilters = {
+  type?: string;
+  status?: TaskStatus;
+  novelId?: string;
+};
+
+interface TaskDataTableProps {
+  data: TaskItem[];
   loading?: boolean;
-  error?: string | null;
-  onRefresh?: () => void;
-  onSearch?: (query: string) => void;
-  onFilter?: (filters: any) => void;
+  filters?: TaskFilters;
+  onFilterChange?: (partial: Partial<TaskFilters>) => void;
   onQuery?: () => void;
-  onExport?: () => void;
-  exporting?: boolean;
-  onCreated?: () => void;
+  onRefresh?: () => void;
   pagination?: {
-    page: number; // 1-based
+    page: number;
     limit: number;
     total: number;
     totalPages: number;
-    onPageChange: (page: number) => void; // 1-based
+    onPageChange: (page: number) => void;
     onPageSizeChange: (size: number) => void;
   };
-}) {
-  const router = useRouter();
+}
+
+export function TaskDataTable({
+  data: initialData,
+  loading = false,
+  filters,
+  onFilterChange,
+  onQuery,
+  onRefresh,
+  pagination,
+}: TaskDataTableProps) {
   const [data, setData] = React.useState(() => initialData);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState<string>("all");
-  const fetchWithAuth = useFetchWithAuth();
-  const [createOpen, setCreateOpen] = React.useState(false);
-  const [selectedProduct, setSelectedProduct] = React.useState<Work | null>(null);
-  const [editOpen, setEditOpen] = React.useState(false);
-  const [importOpen, setImportOpen] = React.useState(false);
-  const columns = React.useMemo<ColumnDef<any>[]>(
+  const [detailTask, setDetailTask] = React.useState<TaskItem | null>(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
+
+  const columns = React.useMemo<ColumnDef<TaskItem>[]>(
     () => [
       {
-        id: "select",
-        header: ({ table }) => (
-          <div className="flex items-center justify-center">
-            <Checkbox
-              checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
-              onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-              aria-label="Select all"
-            />
-          </div>
-        ),
-        cell: ({ row }) => (
-          <div className="flex items-center justify-center">
-            <Checkbox
-              checked={row.getIsSelected()}
-              onCheckedChange={(value) => row.toggleSelected(!!value)}
-              aria-label="Select row"
-            />
-          </div>
-        ),
-        enableSorting: false,
-        enableHiding: false,
+        accessorKey: "taskId",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="任务 ID" />,
+        cell: ({ row }) => <span className="text-muted-foreground font-mono text-xs">{row.original.taskId}</span>,
+        meta: { width: 180 },
       },
       {
-        accessorKey: "title",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="标题" />,
-        cell: ({ row }) => <div className="text-sm font-medium">{row.original.title}</div>,
+        accessorKey: "type",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="任务类型" />,
+        cell: ({ row }) => <span className="text-sm font-medium">{row.original.type}</span>,
+        meta: { minWidth: 140 },
       },
       {
         accessorKey: "status",
         header: ({ column }) => <DataTableColumnHeader column={column} title="状态" />,
         cell: ({ row }) => {
-          const status: string = row.original.status;
-          const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-            [WorkStatus.DRAFT]: { label: "草稿", variant: "secondary" },
-            [WorkStatus.PUBLISHED]: { label: "已发布", variant: "default" },
-            [WorkStatus.ARCHIVED]: { label: "已归档", variant: "outline" },
-          };
-          const cfg = map[status] || { label: String(status), variant: "outline" };
+          const status = row.original.status;
+          const cfg = statusConfig[status] ?? { label: status, variant: "outline" };
           return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
         },
+        meta: { width: 100 },
+      },
+      {
+        accessorKey: "novelId",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="小说 ID" />,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground font-mono text-xs">{row.original.novelId || "-"}</span>
+        ),
+        meta: { minWidth: 140 },
+      },
+      {
+        accessorKey: "prompt",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Prompt" />,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground line-clamp-2 text-xs">{row.original.prompt || "-"}</span>
+        ),
+        meta: { minWidth: 200 },
       },
       {
         accessorKey: "createdAt",
         header: ({ column }) => <DataTableColumnHeader column={column} title="创建时间" />,
         cell: ({ row }) => {
-          const v = row.original.createdAt;
-          const date = v ? new Date(v) : null;
-          return <div className="text-muted-foreground text-xs">{date ? date.toLocaleString("zh-CN") : "-"}</div>;
+          const value = row.original.createdAt;
+          const date = value ? new Date(value) : null;
+          return <span className="text-muted-foreground text-xs">{date ? date.toLocaleString("zh-CN") : "-"}</span>;
         },
+        meta: { width: 160 },
       },
       {
         accessorKey: "updatedAt",
         header: ({ column }) => <DataTableColumnHeader column={column} title="更新时间" />,
         cell: ({ row }) => {
-          const v = row.original.updatedAt;
-          const date = v ? new Date(v) : null;
-          return <div className="text-muted-foreground text-xs">{date ? date.toLocaleString("zh-CN") : "-"}</div>;
+          const value = row.original.updatedAt;
+          const date = value ? new Date(value) : null;
+          return <span className="text-muted-foreground text-xs">{date ? date.toLocaleString("zh-CN") : "-"}</span>;
         },
+        meta: { width: 160 },
       },
       {
-        id: "actions",
+        id: "details",
+        header: "详情",
         cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
-                size="icon"
-              >
-                <EllipsisVertical />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-32">
-              <DropdownMenuItem onClick={() => router.push(`/dashboard/novel/${row.original.novelId}`)}>
-                查看详情
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="link"
+            size="sm"
+            className="px-0"
+            onClick={() => {
+              setDetailTask(row.original);
+              setDetailOpen(true);
+            }}
+          >
+            查看
+          </Button>
         ),
         enableSorting: false,
-        meta: { sticky: "right" },
+        meta: { width: 80 },
       },
     ],
     [],
   );
-  const table = useDataTableInstance({
-    data,
-    columns,
-    getRowId: (row: any) => row?.novelId || row?.id || row?.productId,
-  });
 
-  // 更新数据当props变化时
+  const table = useDataTableInstance({ data, columns, getRowId: (row) => row.taskId });
+
   React.useEffect(() => {
     setData(initialData);
   }, [initialData]);
 
-  // 同步外部分页到表格内部分页状态
   React.useEffect(() => {
     if (pagination) {
       const safePage = Math.max(1, pagination.page);
@@ -193,55 +165,44 @@ export function CustomerDataTable({
     }
   }, [pagination?.page, pagination?.limit]);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    onSearch?.(query);
-  };
-
-  const handleStatusFilter = (status: string) => {
-    setStatusFilter(status);
-    onFilter?.({
-      status: status === "all" ? undefined : status,
+  const handleStatusChange = (value: string) => {
+    onFilterChange?.({
+      status: value === "all" ? undefined : (value as TaskStatus),
     });
   };
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center space-y-4 py-12">
-        <div className="text-destructive text-sm">加载客户数据时出错: {error}</div>
-        <Button onClick={onRefresh} variant="outline" size="sm">
-          重试
-        </Button>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full flex-col justify-start gap-6">
-      {/* 工具栏：使用通用 QueryActionBar 支持自动换行 */}
       <div className="mb-6">
         <QueryActionBar
           left={
             <>
-              <div className="relative max-w-sm min-w-[200px] flex-1">
-                <Search className="text-muted-foreground absolute top-2.5 left-2 h-4 w-4" />
+              <div className="flex min-w-[240px] flex-1 flex-wrap gap-2">
                 <Input
-                  placeholder="搜索作品标题..."
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-8"
+                  placeholder="任务类型"
+                  value={filters?.type ?? ""}
+                  onChange={(event) => onFilterChange?.({ type: event.target.value || undefined })}
+                  className="min-w-[160px] flex-1"
+                />
+                <Input
+                  placeholder="小说 ID"
+                  value={filters?.novelId ?? ""}
+                  onChange={(event) => onFilterChange?.({ novelId: event.target.value || undefined })}
+                  className="min-w-[160px] flex-1"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={handleStatusFilter}>
-                <SelectTrigger className="w-32">
+              <Select value={filters?.status ?? "all"} onValueChange={handleStatusChange}>
+                <SelectTrigger className="w-36">
                   <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="状态" />
+                  <SelectValue placeholder="任务状态" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
-                  <SelectItem value={WorkStatus.DRAFT}>草稿</SelectItem>
-                  <SelectItem value={WorkStatus.PUBLISHED}>已发布</SelectItem>
-                  <SelectItem value={WorkStatus.ARCHIVED}>已归档</SelectItem>
+                  <SelectItem value="all">全部</SelectItem>
+                  {TASK_STATUSES.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {statusConfig[status].label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Button size="sm" onClick={() => onQuery?.()}>
@@ -252,27 +213,24 @@ export function CustomerDataTable({
           right={
             <>
               <DataTableViewOptions table={table} />
-              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-                <Upload className="h-4 w-4" />
-                <span className="hidden lg:inline">导入</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onFilterChange?.({ type: undefined, status: undefined, novelId: undefined })}
+              >
+                清空条件
               </Button>
-              <Button variant="outline" size="sm" onClick={() => onExport?.()} disabled={exporting}>
-                <Download className="h-4 w-4" />
-                <span className="hidden lg:inline">{exporting ? "导出中..." : "导出"}</span>
-              </Button>
-              <Button size="sm" onClick={() => setCreateOpen(true)}>
-                <Plus className="h-4 w-4" />
-                <span className="hidden lg:inline">新增作品</span>
+              <Button variant="outline" size="sm" onClick={onRefresh} disabled={loading}>
+                <RefreshCw className="mr-2 h-4 w-4" /> 刷新
               </Button>
             </>
           }
         />
       </div>
 
-      {/* 数据表格 */}
       <div className="relative flex flex-col gap-4 overflow-auto">
         <div className="overflow-hidden rounded-lg border">
-          <DataTableNew table={table} columns={columns} loading={loading} />
+          <BaseDataTable table={table} columns={columns} loading={loading} />
         </div>
         <DataTablePagination
           table={table}
@@ -291,96 +249,82 @@ export function CustomerDataTable({
           }
         />
       </div>
-      <CreateProductDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreated={() => {
-          // 触发查询并刷新
-          onQuery?.();
-          onRefresh?.();
-        }}
-      />
 
-      {/* 编辑作品 Dialog */}
-      <EditWorkDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        work={selectedProduct as any}
-        onUpdated={() => {
-          onQuery?.();
-          onRefresh?.();
+      <Dialog
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) {
+            setDetailTask(null);
+          }
         }}
-      />
-
-      {/* 导入产品 Dialog */}
-      <ImportProductDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImported={() => {
-          onQuery?.();
-          onRefresh?.();
-        }}
-      />
+      >
+        <DialogContent className="max-h-[70vh] overflow-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>任务详情</DialogTitle>
+            <DialogDescription>查看任务返回的 result 与 error 字段。</DialogDescription>
+          </DialogHeader>
+          {detailTask ? (
+            <div className="space-y-4">
+              <section>
+                <Label className="text-muted-foreground text-xs font-medium uppercase">任务信息</Label>
+                <div className="mt-2 grid gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground mr-2">任务 ID:</span>
+                    <span className="font-mono">{detailTask.taskId}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground mr-2">任务类型:</span>
+                    <span>{detailTask.type}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground mr-2">状态:</span>
+                    <Badge variant={statusConfig[detailTask.status].variant}>
+                      {statusConfig[detailTask.status].label}
+                    </Badge>
+                  </div>
+                  {detailTask.novelId && (
+                    <div>
+                      <span className="text-muted-foreground mr-2">小说 ID:</span>
+                      <span className="font-mono">{detailTask.novelId}</span>
+                    </div>
+                  )}
+                </div>
+              </section>
+              <section>
+                <Label className="text-muted-foreground text-xs font-medium uppercase">Prompt</Label>
+                <pre className="bg-muted/50 mt-2 max-h-48 overflow-auto rounded-md p-3 text-xs">
+                  {detailTask.prompt || "-"}
+                </pre>
+              </section>
+              <section>
+                <Label className="text-muted-foreground text-xs font-medium uppercase">Result</Label>
+                <pre className="bg-muted/50 mt-2 max-h-48 overflow-auto rounded-md p-3 text-xs">
+                  {stringifyJson(detailTask.result)}
+                </pre>
+              </section>
+              <section>
+                <Label className="text-muted-foreground text-xs font-medium uppercase">Error</Label>
+                <pre className="bg-muted/50 mt-2 max-h-48 overflow-auto rounded-md p-3 text-xs">
+                  {stringifyJson(detailTask.error)}
+                </pre>
+              </section>
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-sm">未选择任务。</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-// 保留原有的DataTable组件以防其他地方使用
-export function DataTable({ data: initialData }: { data: z.infer<typeof sectionSchema>[] }) {
-  const [data, setData] = React.useState(() => initialData);
-  const columns = withDndColumn(dashboardColumns);
-  const table = useDataTableInstance({ data, columns, getRowId: (row) => row.id.toString() });
-
-  return (
-    <Tabs defaultValue="outline" className="w-full flex-col justify-start gap-6">
-      <div className="flex items-center justify-between">
-        <Label htmlFor="view-selector" className="sr-only">
-          View
-        </Label>
-        <Select defaultValue="outline">
-          <SelectTrigger className="flex w-fit @4xl/main:hidden" size="sm" id="view-selector">
-            <SelectValue placeholder="Select a view" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="outline">Outline</SelectItem>
-            <SelectItem value="past-performance">Past Performance</SelectItem>
-            <SelectItem value="key-personnel">Key Personnel</SelectItem>
-            <SelectItem value="focus-documents">Focus Documents</SelectItem>
-          </SelectContent>
-        </Select>
-        <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
-          <TabsTrigger value="outline">Outline</TabsTrigger>
-          <TabsTrigger value="past-performance">
-            Past Performance <Badge variant="secondary">3</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="key-personnel">
-            Key Personnel <Badge variant="secondary">2</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="focus-documents">Focus Documents</TabsTrigger>
-        </TabsList>
-        <div className="flex items-center gap-2">
-          <DataTableViewOptions table={table} />
-          <Button variant="outline" size="sm">
-            <Plus />
-            <span className="hidden lg:inline">Add Section</span>
-          </Button>
-        </div>
-      </div>
-      <TabsContent value="outline" className="relative flex flex-col gap-4 overflow-auto">
-        <div className="overflow-hidden rounded-lg border">
-          <DataTableNew dndEnabled table={table} columns={columns} onReorder={setData} />
-        </div>
-        <DataTablePagination table={table} />
-      </TabsContent>
-      <TabsContent value="past-performance" className="flex flex-col">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-      <TabsContent value="key-personnel" className="flex flex-col">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-      <TabsContent value="focus-documents" className="flex flex-col">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
-      </TabsContent>
-    </Tabs>
-  );
+function stringifyJson(value: unknown): string {
+  if (value === undefined || value === null || value === "") return "-";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }

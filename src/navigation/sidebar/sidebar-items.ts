@@ -15,6 +15,7 @@ import {
   // Gauge,
   // GraduationCap,
   LayoutDashboard,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 
@@ -69,9 +70,9 @@ const baseSidebarItems: NavGroup[] = [
         roles: [Role.ADMIN, Role.SUPER_ADMIN], // 只有管理员可以访问
       },
       {
-        title: "任务管理",
+        title: "生成任务",
         url: "/dashboard/task",
-        icon: LayoutDashboard,
+        icon: ListChecks,
         roles: [Role.ADMIN, Role.SUPER_ADMIN], // 只有管理员可以访问
       },
       // {
