@@ -4,9 +4,7 @@ import * as React from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import { fetchWithAuth } from "@/utils/fetch-with-auth";
-import { ChartAreaInteractive } from "./_components/chart-area-interactive";
 import { CustomerDataTable } from "./_components/data-table";
-import { SectionCards } from "./_components/section-cards";
 import { Work } from "@/types/work";
 
 // 后端统一响应包装
