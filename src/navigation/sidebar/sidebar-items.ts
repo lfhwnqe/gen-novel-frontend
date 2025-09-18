@@ -68,6 +68,12 @@ const baseSidebarItems: NavGroup[] = [
         icon: LayoutDashboard,
         roles: [Role.ADMIN, Role.SUPER_ADMIN], // 只有管理员可以访问
       },
+      {
+        title: "任务管理",
+        url: "/dashboard/task",
+        icon: LayoutDashboard,
+        roles: [Role.ADMIN, Role.SUPER_ADMIN], // 只有管理员可以访问
+      },
       // {
       //   title: "CRM",
       //   url: "/dashboard/crm",
