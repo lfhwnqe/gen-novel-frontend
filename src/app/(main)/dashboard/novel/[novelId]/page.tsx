@@ -14,6 +14,7 @@ import { AlertCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NovelWorldbuildingPanel } from "./_components/novel-worldbuilding-panel";
 
 // 后端统一响应包装
 interface ApiResponse<T> {
@@ -266,9 +267,7 @@ export default function NovelDetailPage() {
                 </div>
               </TabsContent>
               <TabsContent value="worldview">
-                <div className="text-muted-foreground flex min-h-[200px] items-center justify-center">
-                  小说世界观内容敬请期待
-                </div>
+                <NovelWorldbuildingPanel novelId={novelId} />
               </TabsContent>
               <TabsContent value="outline">
                 <div className="text-muted-foreground flex min-h-[200px] items-center justify-center">
