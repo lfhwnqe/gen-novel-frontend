@@ -70,6 +70,7 @@ export function NovelWorldbuildingPanel({ novelId }: NovelWorldbuildingPanelProp
 
   const [draftContent, setDraftContent] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isPublishing, setIsPublishing] = React.useState(false);
   const [isGenerateDrawerOpen, setIsGenerateDrawerOpen] = React.useState(false);
   const [generatePrompt, setGeneratePrompt] = React.useState("");
   const [isGenerating, setIsGenerating] = React.useState(false);
@@ -125,6 +126,34 @@ export function NovelWorldbuildingPanel({ novelId }: NovelWorldbuildingPanelProp
       setIsSaving(false);
     }
   }, [draft?.worldbuildingId, draftContent, mutate]);
+
+  const handlePublishDraft = React.useCallback(async () => {
+    if (!draft?.worldbuildingId) {
+      toast.error("暂无草稿可发布");
+      return;
+    }
+
+    try {
+      setIsPublishing(true);
+      const res = await fetchWithAuth(`/api/v1/novels/worldbuildings/drafts/${draft.worldbuildingId}/publish`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const message = errorData?.message?.message || `发布草稿失败: ${res.status} ${res.statusText}`;
+        throw new Error(message);
+      }
+
+      toast.success("草稿已发布为正式版");
+      await mutate();
+    } catch (publishError) {
+      const message = publishError instanceof Error ? publishError.message : "发布草稿失败";
+      toast.error(message);
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [draft?.worldbuildingId, mutate]);
 
   const handleGenerateSubmit = React.useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -324,7 +353,10 @@ export function NovelWorldbuildingPanel({ novelId }: NovelWorldbuildingPanelProp
                   {draft.createdBy && <span>创建人：{draft.createdBy}</span>}
                 </div>
                 <div className="flex items-center justify-end gap-3">
-                  <Button onClick={handleSaveDraft} disabled={isSaving}>
+                  <Button variant="outline" onClick={handlePublishDraft} disabled={isPublishing || isSaving}>
+                    {isPublishing ? "发布中..." : "保存为正式版"}
+                  </Button>
+                  <Button onClick={handleSaveDraft} disabled={isSaving || isPublishing}>
                     {isSaving ? "保存中..." : "保存草稿"}
                   </Button>
                 </div>
