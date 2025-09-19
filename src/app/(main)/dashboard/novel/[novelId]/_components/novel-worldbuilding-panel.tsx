@@ -14,6 +14,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 
 interface ApiResponse<T> {
   success: boolean;
@@ -60,6 +70,9 @@ export function NovelWorldbuildingPanel({ novelId }: NovelWorldbuildingPanelProp
 
   const [draftContent, setDraftContent] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isGenerateDrawerOpen, setIsGenerateDrawerOpen] = React.useState(false);
+  const [generatePrompt, setGeneratePrompt] = React.useState("");
+  const [isGenerating, setIsGenerating] = React.useState(false);
 
   React.useEffect(() => {
     setDraftContent(draft?.content ?? "");
@@ -68,6 +81,13 @@ export function NovelWorldbuildingPanel({ novelId }: NovelWorldbuildingPanelProp
   const handleRefresh = React.useCallback(() => {
     void mutate();
   }, [mutate]);
+
+  const handleDrawerOpenChange = React.useCallback((open: boolean) => {
+    setIsGenerateDrawerOpen(open);
+    if (!open) {
+      setGeneratePrompt("");
+    }
+  }, []);
 
   const handleSaveDraft = React.useCallback(async () => {
     if (!draft?.worldbuildingId) {
@@ -106,6 +126,51 @@ export function NovelWorldbuildingPanel({ novelId }: NovelWorldbuildingPanelProp
     }
   }, [draft?.worldbuildingId, draftContent, mutate]);
 
+  const handleGenerateSubmit = React.useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      if (!novelId) {
+        toast.error("缺少小说 ID，无法生成世界观");
+        return;
+      }
+
+      if (!generatePrompt.trim()) {
+        toast.error("请输入生成提示词");
+        return;
+      }
+
+      try {
+        setIsGenerating(true);
+        const res = await fetchWithAuth("/api/v1/novels/generation/worldbuilding", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ prompt: generatePrompt, novelId }),
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          const message =
+            errorData?.message?.message || errorData?.message || `触发世界观生成失败: ${res.status} ${res.statusText}`;
+          throw new Error(typeof message === "string" ? message : "触发世界观生成失败");
+        }
+
+        toast.success("已提交生成请求");
+        setIsGenerateDrawerOpen(false);
+        setGeneratePrompt("");
+        await mutate();
+      } catch (generateError) {
+        const message = generateError instanceof Error ? generateError.message : "触发世界观生成失败";
+        toast.error(message);
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [generatePrompt, mutate, novelId],
+  );
+
   if (!novelId) {
     return (
       <Alert>
@@ -142,10 +207,51 @@ export function NovelWorldbuildingPanel({ novelId }: NovelWorldbuildingPanelProp
           <h3 className="text-lg font-semibold">小说世界观版本</h3>
           <p className="text-muted-foreground text-sm">查看最新发布版本与草稿版本，并可在线编辑草稿内容。</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isValidating}>
-          <RefreshCcw className="mr-2 h-4 w-4" />
-          刷新数据
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Drawer direction="right" open={isGenerateDrawerOpen} onOpenChange={handleDrawerOpenChange}>
+            <DrawerTrigger asChild>
+              <Button size="sm">生成世界观</Button>
+            </DrawerTrigger>
+            <DrawerContent className="sm:max-w-xl">
+              <DrawerHeader>
+                <DrawerTitle>生成小说世界观</DrawerTitle>
+                <DrawerDescription>输入提示词，生成新的世界观草稿内容。</DrawerDescription>
+              </DrawerHeader>
+              <form className="flex h-full flex-1 flex-col" onSubmit={handleGenerateSubmit}>
+                <div className="flex flex-1 flex-col gap-4 px-4">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="worldbuilding-generate-prompt">生成提示词</Label>
+                    <Textarea
+                      id="worldbuilding-generate-prompt"
+                      value={generatePrompt}
+                      onChange={(event) => setGeneratePrompt(event.target.value)}
+                      placeholder="例如：描绘一个拥有多颗卫星的奇幻世界，其科技水平介于蒸汽朋克与魔法之间。"
+                      className="min-h-[160px]"
+                      disabled={isGenerating}
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      提供越具体的背景、人物、冲突信息，生成结果越贴合创作需求。
+                    </p>
+                  </div>
+                </div>
+                <DrawerFooter>
+                  <Button type="submit" disabled={isGenerating}>
+                    {isGenerating ? "提交中..." : "提交生成"}
+                  </Button>
+                  <DrawerClose asChild>
+                    <Button type="button" variant="outline" disabled={isGenerating}>
+                      取消
+                    </Button>
+                  </DrawerClose>
+                </DrawerFooter>
+              </form>
+            </DrawerContent>
+          </Drawer>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isValidating}>
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            刷新数据
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
