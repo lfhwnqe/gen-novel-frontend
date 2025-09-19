@@ -15,6 +15,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NovelWorldbuildingPanel } from "./_components/novel-worldbuilding-panel";
+import { NovelOutlinePanel } from "./_components/novel-outline-panel";
 
 // 后端统一响应包装
 interface ApiResponse<T> {
@@ -270,9 +271,7 @@ export default function NovelDetailPage() {
                 <NovelWorldbuildingPanel novelId={novelId} />
               </TabsContent>
               <TabsContent value="outline">
-                <div className="text-muted-foreground flex min-h-[200px] items-center justify-center">
-                  小说大纲内容敬请期待
-                </div>
+                <NovelOutlinePanel novelId={novelId} />
               </TabsContent>
               <TabsContent value="characters">
                 <div className="text-muted-foreground flex min-h-[200px] items-center justify-center">
