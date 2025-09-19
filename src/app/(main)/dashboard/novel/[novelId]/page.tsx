@@ -4,7 +4,7 @@ import * as React from "react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import { fetchWithAuth } from "@/utils/fetch-with-auth";
-import { Character, WorkDetailResponse, WorkStatus } from "@/types/work";
+import { WorkDetailResponse, WorkStatus } from "@/types/work";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -52,8 +52,6 @@ export default function NovelDetailPage() {
   });
 
   const work = detail?.work;
-  const outlines = detail?.outlines ?? [];
-  const characters = detail?.characters ?? [];
 
   const getStatusLabel = (status: WorkStatus) => {
     switch (status) {
@@ -82,16 +80,6 @@ export default function NovelDetailPage() {
   };
 
   const formatDateTime = (value: string) => new Date(value).toLocaleString("zh-CN");
-
-  const formatTraits = (traits?: Character["traits"]) => {
-    if (!traits) {
-      return "";
-    }
-    if (Array.isArray(traits)) {
-      return traits.join("，");
-    }
-    return traits;
-  };
 
   if (error) {
     return (
@@ -183,87 +171,6 @@ export default function NovelDetailPage() {
                       <Label className="text-muted-foreground text-xs font-medium tracking-wider uppercase">描述</Label>
                       <div className="mt-1 text-sm whitespace-pre-wrap">{work.description}</div>
                     </div>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  <Label className="text-muted-foreground text-xs font-medium tracking-wider uppercase">剧情提纲</Label>
-                  {outlines.length ? (
-                    <div className="space-y-4">
-                      {outlines.map((outline, index) => (
-                        <div key={outline.outlineId} className="rounded-lg border p-4">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <h3 className="text-sm font-semibold">{outline.title?.trim() || `提纲 ${index + 1}`}</h3>
-                              {outline.summary && (
-                                <p className="text-muted-foreground mt-1 text-sm">{outline.summary}</p>
-                              )}
-                            </div>
-                            <div className="text-muted-foreground font-mono text-xs">ID: {outline.outlineId}</div>
-                          </div>
-                          {outline.content && (
-                            <pre className="bg-muted/50 mt-3 max-h-60 overflow-auto rounded-md border p-3 text-xs whitespace-pre-wrap">
-                              {(() => {
-                                try {
-                                  return JSON.stringify(JSON.parse(outline.content), null, 2);
-                                } catch {
-                                  return outline.content;
-                                }
-                              })()}
-                            </pre>
-                          )}
-                          <div className="text-muted-foreground mt-3 flex flex-wrap gap-4 text-xs">
-                            <span>创建时间：{formatDateTime(outline.createdAt)}</span>
-                            <span>更新时间：{formatDateTime(outline.updatedAt)}</span>
-                            {outline.createdBy && <span>创建人：{outline.createdBy}</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground text-sm">暂无提纲数据</div>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  <Label className="text-muted-foreground text-xs font-medium tracking-wider uppercase">角色设定</Label>
-                  {characters.length ? (
-                    <div className="space-y-4">
-                      {characters.map((character) => {
-                        const traitsText = formatTraits(character.traits);
-                        return (
-                          <div key={character.characterId} className="rounded-lg border p-4">
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <h3 className="text-sm font-semibold">{character.name}</h3>
-                                {character.role && (
-                                  <p className="text-muted-foreground mt-1 text-sm">角色定位：{character.role}</p>
-                                )}
-                              </div>
-                              <div className="text-muted-foreground font-mono text-xs">ID: {character.characterId}</div>
-                            </div>
-                            {traitsText && (
-                              <div className="text-sm">
-                                <span className="text-muted-foreground">性格特征：</span>
-                                <span>{traitsText}</span>
-                              </div>
-                            )}
-                            {character.background && (
-                              <div className="text-muted-foreground mt-2 text-sm whitespace-pre-wrap">
-                                {character.background}
-                              </div>
-                            )}
-                            <div className="text-muted-foreground mt-3 flex flex-wrap gap-4 text-xs">
-                              <span>创建时间：{formatDateTime(character.createdAt)}</span>
-                              <span>更新时间：{formatDateTime(character.updatedAt)}</span>
-                              {character.createdBy && <span>创建人：{character.createdBy}</span>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground text-sm">暂无角色数据</div>
                   )}
                 </div>
               </TabsContent>

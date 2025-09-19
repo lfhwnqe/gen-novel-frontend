@@ -42,8 +42,6 @@ export interface Character {
 
 export interface WorkDetailResponse {
   work: Work;
-  outlines: Outline[];
-  characters: Character[];
 }
 
 // 创建作品入参
