@@ -8,8 +8,7 @@ export enum OutlineStatus {
 export interface OutlineVersion {
   outlineId: string;
   novelId?: string;
-  title?: string;
-  summary?: string;
+  prompt?: string;
   content?: string;
   status: OutlineStatus;
   createdAt: string;

@@ -10,7 +10,6 @@ import { OutlineLatestVersions, OutlineStatus } from "@/types/outline";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -81,8 +80,6 @@ export function NovelOutlinePanel({ novelId }: NovelOutlinePanelProps) {
   const draft = data?.draft;
   const published = data?.published;
 
-  const [draftTitle, setDraftTitle] = React.useState("");
-  const [draftSummary, setDraftSummary] = React.useState("");
   const [draftContent, setDraftContent] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
   const [isPublishing, setIsPublishing] = React.useState(false);
@@ -91,10 +88,8 @@ export function NovelOutlinePanel({ novelId }: NovelOutlinePanelProps) {
   const [isGenerating, setIsGenerating] = React.useState(false);
 
   React.useEffect(() => {
-    setDraftTitle(draft?.title ?? "");
-    setDraftSummary(draft?.summary ?? "");
     setDraftContent(draft?.content ?? "");
-  }, [draft?.content, draft?.summary, draft?.title]);
+  }, [draft?.content]);
 
   const handleRefresh = React.useCallback(() => {
     void mutate();
@@ -113,11 +108,6 @@ export function NovelOutlinePanel({ novelId }: NovelOutlinePanelProps) {
       return;
     }
 
-    if (!draftTitle.trim()) {
-      toast.error("请填写草稿标题");
-      return;
-    }
-
     if (!draftContent.trim()) {
       toast.error("请填写草稿内容");
       return;
@@ -131,8 +121,6 @@ export function NovelOutlinePanel({ novelId }: NovelOutlinePanelProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          title: draftTitle,
-          summary: draftSummary,
           content: draftContent,
           novelId: draft.novelId ?? novelId,
         }),
@@ -152,7 +140,7 @@ export function NovelOutlinePanel({ novelId }: NovelOutlinePanelProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [draft?.outlineId, draft?.novelId, draftContent, draftTitle, draftSummary, mutate, novelId]);
+  }, [draft?.outlineId, draft?.novelId, draftContent, mutate, novelId]);
 
   const handlePublishDraft = React.useCallback(async () => {
     if (!draft?.outlineId) {
@@ -323,18 +311,6 @@ export function NovelOutlinePanel({ novelId }: NovelOutlinePanelProps) {
                   <Badge variant={statusVariantMap[published.status]}>{statusLabelMap[published.status]}</Badge>
                   <span className="text-muted-foreground text-xs">ID: {published.outlineId}</span>
                 </div>
-                {published.title && (
-                  <div>
-                    <Label className="text-muted-foreground text-xs font-medium tracking-wider uppercase">标题</Label>
-                    <div className="mt-1 text-sm font-medium">{published.title}</div>
-                  </div>
-                )}
-                {published.summary && (
-                  <div>
-                    <Label className="text-muted-foreground text-xs font-medium tracking-wider uppercase">摘要</Label>
-                    <p className="text-muted-foreground mt-1 text-sm whitespace-pre-wrap">{published.summary}</p>
-                  </div>
-                )}
                 {published.content && (
                   <div>
                     <Label className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
@@ -367,38 +343,16 @@ export function NovelOutlinePanel({ novelId }: NovelOutlinePanelProps) {
               <>
                 <div className="flex flex-wrap items-center gap-3">
                   <Badge variant={statusVariantMap[draft.status]}>{statusLabelMap[draft.status]}</Badge>
-                  <span className="text-muted-foreground text-xs">ID: {draft.outlineId}</span>
                 </div>
-                <div className="grid gap-4">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="outline-draft-title">草稿标题</Label>
-                    <Input
-                      id="outline-draft-title"
-                      value={draftTitle}
-                      onChange={(event) => setDraftTitle(event.target.value)}
-                      placeholder="请输入大纲标题"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="outline-draft-summary">草稿摘要</Label>
-                    <Textarea
-                      id="outline-draft-summary"
-                      value={draftSummary}
-                      onChange={(event) => setDraftSummary(event.target.value)}
-                      placeholder="可以简单描述大纲整体内容"
-                      className="min-h-[100px]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="outline-draft-content">草稿正文</Label>
-                    <Textarea
-                      id="outline-draft-content"
-                      value={draftContent}
-                      onChange={(event) => setDraftContent(event.target.value)}
-                      placeholder="请输入小说大纲草稿内容，可以使用 Markdown 或 JSON 结构"
-                      className="min-h-[240px]"
-                    />
-                  </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="outline-draft-content">草稿正文</Label>
+                  <Textarea
+                    id="outline-draft-content"
+                    value={draftContent}
+                    onChange={(event) => setDraftContent(event.target.value)}
+                    placeholder="请输入小说大纲草稿内容，可以使用 Markdown 或 JSON 结构"
+                    className="min-h-[240px]"
+                  />
                 </div>
                 <div className="text-muted-foreground flex flex-wrap gap-4 text-xs">
                   <span>创建时间：{formatDateTime(draft.createdAt)}</span>
