@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search, SlidersHorizontal, Plus, EllipsisVertical, RefreshCcw, FileText } from "lucide-react";
+import { Search, SlidersHorizontal, Plus, EllipsisVertical, RefreshCcw, FileText, Link2 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 
@@ -27,6 +27,7 @@ import { CharacterDetailDialog } from "./character-detail-dialog";
 
 import { CreateCharacterDialog } from "./create-product-dialog";
 import { EditCharacterDialog } from "./edit-work-dialog";
+import { CreateRelationshipEventDialog } from "./create-relationship-event-dialog";
 
 interface CharacterTableProps {
   data: Character[];
@@ -70,6 +71,12 @@ export function CharacterDataTable({
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [detailData, setDetailData] = React.useState<Character | null>(null);
   const [detailError, setDetailError] = React.useState<string | null>(null);
+  const [relationshipOpen, setRelationshipOpen] = React.useState(false);
+  const [relationshipInitial, setRelationshipInitial] = React.useState<{
+    characterAId?: string;
+    characterBId?: string;
+    novelId?: string;
+  } | null>(null);
 
   const columns = React.useMemo<ColumnDef<Character>[]>(
     () => [
@@ -248,6 +255,9 @@ export function CharacterDataTable({
     getRowId: (row) => row.characterId,
   });
 
+  const selectedRows = table.getSelectedRowModel().rows;
+  const selectedCount = selectedRows.length;
+
   React.useEffect(() => {
     setData(initialData);
   }, [initialData]);
@@ -356,6 +366,40 @@ export function CharacterDataTable({
               >
                 <RefreshCcw className="mr-2 h-4 w-4" /> 刷新
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={loading}
+                title={
+                  selectedCount === 2 ? "已根据所选行预填两个角色" : "可直接打开弹窗搜索角色；勾选两名角色将自动预填"
+                }
+                onClick={() => {
+                  const first = selectedRows[0]?.original;
+                  const second = selectedRows[1]?.original;
+                  const initial: {
+                    characterAId?: string;
+                    characterBId?: string;
+                    novelId?: string;
+                  } = {};
+                  if (first) {
+                    initial.characterAId = first.characterId;
+                  }
+                  if (second) {
+                    initial.characterBId = second.characterId;
+                  }
+                  const preferNovelId =
+                    first?.novelId && second?.novelId && first.novelId === second.novelId
+                      ? first.novelId
+                      : (first?.novelId ?? second?.novelId ?? "");
+                  if (preferNovelId) {
+                    initial.novelId = preferNovelId;
+                  }
+                  setRelationshipInitial(Object.keys(initial).length ? initial : null);
+                  setRelationshipOpen(true);
+                }}
+              >
+                <Link2 className="mr-2 h-4 w-4" /> 创建关系事件
+              </Button>
               <Button size="sm" onClick={() => setCreateOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" /> 新增角色
               </Button>
@@ -412,6 +456,22 @@ export function CharacterDataTable({
         onOpenChange={setEditOpen}
         character={currentCharacter}
         onUpdated={() => {
+          onQuery?.();
+          onRefresh?.();
+        }}
+      />
+
+      <CreateRelationshipEventDialog
+        open={relationshipOpen}
+        onOpenChange={(value) => {
+          setRelationshipOpen(value);
+          if (!value) {
+            setRelationshipInitial(null);
+          }
+        }}
+        initialCharacters={data}
+        initialSelection={relationshipInitial ?? undefined}
+        onCreated={() => {
           onQuery?.();
           onRefresh?.();
         }}
