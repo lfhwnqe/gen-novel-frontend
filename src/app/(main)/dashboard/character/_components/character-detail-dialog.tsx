@@ -29,21 +29,34 @@ interface CharacterDetailDialogProps {
 }
 
 const extractRelationships = (input: unknown): CharacterRelationshipEdge[] => {
+  const normalize = (value: unknown): CharacterRelationshipEdge | null => {
+    if (!value || typeof value !== "object") return null;
+    const record = value as Record<string, unknown>;
+    const characterId = typeof record.characterId === "string" ? record.characterId : undefined;
+    const relationType = typeof record.relationType === "string" ? record.relationType : undefined;
+    if (!characterId || !relationType) return null;
+    const name = typeof record.name === "string" ? record.name : undefined;
+    return { characterId, relationType, name };
+  };
+
+  const collect = (items: unknown[]): CharacterRelationshipEdge[] =>
+    items.map((item) => normalize(item)).filter((item): item is CharacterRelationshipEdge => Boolean(item));
+
   if (!input || typeof input !== "object") return [];
   const record = input as Record<string, unknown>;
   if ("success" in record && "data" in record) {
     const data = record.data as Record<string, unknown> | undefined;
     if (data && Array.isArray((data as any).data)) {
-      return (data as any).data as CharacterRelationshipEdge[];
+      return collect((data as any).data as unknown[]);
     }
     if (Array.isArray(data)) {
-      return data as CharacterRelationshipEdge[];
+      return collect(data as unknown[]);
     }
   }
   if ("data" in record && Array.isArray(record.data)) {
-    return record.data as CharacterRelationshipEdge[];
+    return collect(record.data as unknown[]);
   }
-  if (Array.isArray(input)) return input as CharacterRelationshipEdge[];
+  if (Array.isArray(input)) return collect(input as unknown[]);
   return [];
 };
 
@@ -250,25 +263,12 @@ export function CharacterDetailDialog({ open, loading, character, error, onClose
               ) : relationships.length ? (
                 <div className="space-y-3">
                   {relationships.map((item) => (
-                    <div
-                      key={`${item.otherId}-${item.relationType}-${item.lastEventId ?? item.updatedAt ?? item.createdAt ?? ""}`}
-                      className="rounded-md border p-4"
-                    >
+                    <div key={`${item.characterId}-${item.relationType}`} className="rounded-md border p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary">{item.relationType || "未标记"}</Badge>
-                          <span className="font-medium">对方角色 ID：{item.otherId}</span>
+                          <span className="font-medium">对方角色：{item.name || item.characterId}</span>
                         </div>
-                        <span className="text-muted-foreground text-xs">
-                          最后更新：{formatDateTime(item.updatedAt || item.createdAt)}
-                        </span>
-                      </div>
-                      <div className="text-muted-foreground mt-2 space-y-1 text-sm">
-                        {item.reason && <div>原因：{item.reason}</div>}
-                        {item.sinceTs && <div>关系建立时间：{formatDateTime(item.sinceTs)}</div>}
-                        {item.novelId && <div>所属小说：{item.novelId}</div>}
-                        {item.lastEventId && <div>关联事件 ID：{item.lastEventId}</div>}
-                        {item.ownerId && <div>维护人：{item.ownerId}</div>}
                       </div>
                     </div>
                   ))}

@@ -43,15 +43,8 @@ export interface Character {
 
 export interface CharacterRelationshipEdge {
   characterId: string;
-  otherId: string;
+  name?: string;
   relationType: string;
-  sinceTs?: string;
-  reason?: string;
-  lastEventId?: string;
-  novelId?: string;
-  updatedAt?: string;
-  createdAt?: string;
-  ownerId?: string;
 }
 
 export interface WorkDetailResponse {

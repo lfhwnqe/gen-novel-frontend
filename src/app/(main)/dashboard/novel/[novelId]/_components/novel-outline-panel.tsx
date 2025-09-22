@@ -354,11 +354,6 @@ export function NovelOutlinePanel({ novelId }: NovelOutlinePanelProps) {
                     className="min-h-[240px]"
                   />
                 </div>
-                <div className="text-muted-foreground flex flex-wrap gap-4 text-xs">
-                  <span>创建时间：{formatDateTime(draft.createdAt)}</span>
-                  <span>更新时间：{formatDateTime(draft.updatedAt)}</span>
-                  {draft.createdBy && <span>创建人：{draft.createdBy}</span>}
-                </div>
                 <div className="flex items-center justify-end gap-3">
                   <Button variant="outline" onClick={handlePublishDraft} disabled={isPublishing || isSaving}>
                     {isPublishing ? "发布中..." : "保存为正式版"}
