@@ -110,15 +110,12 @@ export function CharacterDetailDialog({ open, loading, character, error, onClose
   } = useSWR<CharacterRelationshipEdge[]>(
     relationshipsKey,
     async ([, characterId, relationType]) => {
-      const params = new URLSearchParams();
-      if (relationType) params.set("relationType", relationType);
-      const query = params.toString();
-      const res = await fetchWithAuth(
-        `/api/v1/novels/characters/${characterId}/relationships${query ? `?${query}` : ""}`,
-        {
-          method: "GET",
-        },
-      );
+      const payload = relationType ? { relationType } : {};
+      const res = await fetchWithAuth(`/api/v1/novels/characters/${characterId}/relationships`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}) as any);
         const message = err?.message?.message || err?.message || `关系数据获取失败: ${res.status} ${res.statusText}`;
