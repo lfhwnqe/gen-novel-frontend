@@ -1,7 +1,10 @@
 "use client";
 
 import * as React from "react";
+import useSWR from "swr";
+import { RefreshCcw, Search } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,10 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Character } from "@/types/work";
+import { Badge } from "@/components/ui/badge";
+import { useFetchWithAuth } from "@/utils/fetch-with-auth";
+import { Character, CharacterRelationshipEdge } from "@/types/work";
 
 interface CharacterDetailDialogProps {
   open: boolean;
@@ -22,6 +27,25 @@ interface CharacterDetailDialogProps {
   error?: string | null;
   onClose: () => void;
 }
+
+const extractRelationships = (input: unknown): CharacterRelationshipEdge[] => {
+  if (!input || typeof input !== "object") return [];
+  const record = input as Record<string, unknown>;
+  if ("success" in record && "data" in record) {
+    const data = record.data as Record<string, unknown> | undefined;
+    if (data && Array.isArray((data as any).data)) {
+      return (data as any).data as CharacterRelationshipEdge[];
+    }
+    if (Array.isArray(data)) {
+      return data as CharacterRelationshipEdge[];
+    }
+  }
+  if ("data" in record && Array.isArray(record.data)) {
+    return record.data as CharacterRelationshipEdge[];
+  }
+  if (Array.isArray(input)) return input as CharacterRelationshipEdge[];
+  return [];
+};
 
 const formatDateTime = (value?: string) => {
   if (!value) return "-";
@@ -51,6 +75,62 @@ const renderTraits = (traits?: string[] | string) => {
 };
 
 export function CharacterDetailDialog({ open, loading, character, error, onClose }: CharacterDetailDialogProps) {
+  const fetchWithAuth = useFetchWithAuth();
+  const [relationTypeDraft, setRelationTypeDraft] = React.useState("");
+  const [relationTypeFilter, setRelationTypeFilter] = React.useState<string | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (open) {
+      setRelationTypeDraft("");
+      setRelationTypeFilter(undefined);
+    }
+  }, [open, character?.characterId]);
+
+  const relationshipsKey =
+    open && character ? ["character-relationships", character.characterId, relationTypeFilter ?? ""] : null;
+
+  const {
+    data: relationshipData,
+    isLoading: relationshipLoading,
+    error: relationshipError,
+    mutate: refreshRelationships,
+  } = useSWR<CharacterRelationshipEdge[]>(
+    relationshipsKey,
+    async ([, characterId, relationType]) => {
+      const params = new URLSearchParams();
+      if (relationType) params.set("relationType", relationType);
+      const query = params.toString();
+      const res = await fetchWithAuth(
+        `/api/v1/novels/characters/${characterId}/relationships${query ? `?${query}` : ""}`,
+        {
+          method: "GET",
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}) as any);
+        const message = err?.message?.message || err?.message || `关系数据获取失败: ${res.status} ${res.statusText}`;
+        throw new Error(message);
+      }
+      const json = await res.json().catch(() => ({}));
+      return extractRelationships(json);
+    },
+    {
+      revalidateOnFocus: false,
+      keepPreviousData: true,
+    },
+  );
+
+  const relationships = relationshipData ?? [];
+
+  const handleRelationQuery = () => {
+    setRelationTypeFilter(relationTypeDraft.trim() || undefined);
+  };
+
+  const handleRelationReset = () => {
+    setRelationTypeDraft("");
+    setRelationTypeFilter(undefined);
+  };
+
   return (
     <Dialog open={open} onOpenChange={(value) => (value ? undefined : onClose())}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
@@ -112,6 +192,90 @@ export function CharacterDetailDialog({ open, loading, character, error, onClose
               <div className="text-muted-foreground mt-2 text-sm whitespace-pre-wrap">
                 {character.background?.trim() ? character.background : "暂无背景描述"}
               </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <Label className="text-muted-foreground text-xs uppercase">角色关系</Label>
+                  <div className="text-muted-foreground mt-1 text-sm">可按关系类型过滤，例如输入“朋友”或“仇人”。</div>
+                </div>
+                <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
+                  <Input
+                    placeholder="关系类型"
+                    value={relationTypeDraft}
+                    onChange={(event) => setRelationTypeDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleRelationQuery();
+                      }
+                    }}
+                    className="md:w-40"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={handleRelationQuery} disabled={relationshipLoading}>
+                      <Search className="mr-2 h-4 w-4" /> 查询
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleRelationReset}
+                      disabled={relationshipLoading && !relationTypeFilter}
+                    >
+                      清空
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => refreshRelationships()}
+                      disabled={relationshipLoading}
+                    >
+                      <RefreshCcw className="mr-2 h-4 w-4" /> 刷新
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {relationshipLoading ? (
+                <div className="space-y-2 rounded-md border p-4">
+                  <Skeleton className="h-4 w-2/5" />
+                  <Skeleton className="h-4 w-3/5" />
+                  <Skeleton className="h-4 w-1/3" />
+                </div>
+              ) : relationshipError ? (
+                <div className="text-destructive text-sm">
+                  {(relationshipError as Error)?.message || "获取角色关系失败"}
+                </div>
+              ) : relationships.length ? (
+                <div className="space-y-3">
+                  {relationships.map((item) => (
+                    <div
+                      key={`${item.otherId}-${item.relationType}-${item.lastEventId ?? item.updatedAt ?? item.createdAt ?? ""}`}
+                      className="rounded-md border p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{item.relationType || "未标记"}</Badge>
+                          <span className="font-medium">对方角色 ID：{item.otherId}</span>
+                        </div>
+                        <span className="text-muted-foreground text-xs">
+                          最后更新：{formatDateTime(item.updatedAt || item.createdAt)}
+                        </span>
+                      </div>
+                      <div className="text-muted-foreground mt-2 space-y-1 text-sm">
+                        {item.reason && <div>原因：{item.reason}</div>}
+                        {item.sinceTs && <div>关系建立时间：{formatDateTime(item.sinceTs)}</div>}
+                        {item.novelId && <div>所属小说：{item.novelId}</div>}
+                        {item.lastEventId && <div>关联事件 ID：{item.lastEventId}</div>}
+                        {item.ownerId && <div>维护人：{item.ownerId}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-muted-foreground text-sm">暂无关系数据。</div>
+              )}
             </div>
           </div>
         ) : (
