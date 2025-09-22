@@ -10,6 +10,7 @@ export interface TaskItem {
   status: TaskStatus;
   prompt?: string;
   novelId?: string;
+  novelName?: string;
   createdAt: string;
   updatedAt: string;
   result?: unknown;

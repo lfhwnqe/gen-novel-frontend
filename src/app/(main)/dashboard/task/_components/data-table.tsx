@@ -15,8 +15,15 @@ import { DataTable as BaseDataTable } from "../../../../../components/data-table
 import { DataTablePagination } from "../../../../../components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "../../../../../components/data-table/data-table-view-options";
 import { QueryActionBar } from "@/components/layouts/query-action-bar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { TaskItem, TaskStatus, TASK_STATUSES } from "@/types/task";
+import { TaskType } from "@/types/work";
+
+const TASK_TYPE_LABELS: Record<string, string> = {
+  [TaskType.SCENARIO_OUTLINE]: "剧情大纲",
+  [TaskType.WORLDBUILDING]: "世界观设定",
+};
 
 const statusConfig: Record<
   TaskStatus,
@@ -67,15 +74,20 @@ export function TaskDataTable({
   const columns = React.useMemo<ColumnDef<TaskItem>[]>(
     () => [
       {
-        accessorKey: "taskId",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="任务 ID" />,
-        cell: ({ row }) => <span className="text-muted-foreground font-mono text-xs">{row.original.taskId}</span>,
-        meta: { width: 180 },
+        accessorKey: "novelName",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="小说名称" />,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground font-mono text-xs">{row.original.novelName || "-"}</span>
+        ),
+        meta: { minWidth: 140 },
       },
       {
         accessorKey: "type",
         header: ({ column }) => <DataTableColumnHeader column={column} title="任务类型" />,
-        cell: ({ row }) => <span className="text-sm font-medium">{row.original.type}</span>,
+        cell: ({ row }) => {
+          const label = TASK_TYPE_LABELS[row.original.type] ?? row.original.type;
+          return <span className="text-sm font-medium">{label}</span>;
+        },
         meta: { minWidth: 140 },
       },
       {
@@ -89,19 +101,26 @@ export function TaskDataTable({
         meta: { width: 100 },
       },
       {
-        accessorKey: "novelId",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="小说 ID" />,
-        cell: ({ row }) => (
-          <span className="text-muted-foreground font-mono text-xs">{row.original.novelId || "-"}</span>
-        ),
-        meta: { minWidth: 140 },
-      },
-      {
         accessorKey: "prompt",
         header: ({ column }) => <DataTableColumnHeader column={column} title="Prompt" />,
-        cell: ({ row }) => (
-          <span className="text-muted-foreground line-clamp-2 text-xs">{row.original.prompt || "-"}</span>
-        ),
+        cell: ({ row }) => {
+          const prompt = row.original.prompt;
+
+          if (!prompt) {
+            return <span className="text-muted-foreground text-xs">-</span>;
+          }
+
+          return (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-muted-foreground block max-w-[280px] truncate text-xs">{prompt}</span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed break-words whitespace-pre-line">
+                {prompt}
+              </TooltipContent>
+            </Tooltip>
+          );
+        },
         meta: { minWidth: 200 },
       },
       {

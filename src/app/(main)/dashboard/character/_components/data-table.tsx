@@ -121,10 +121,10 @@ export function CharacterDataTable({
         },
       },
       {
-        accessorKey: "novelId",
-        header: ({ column }) => <DataTableColumnHeader column={column} title="所属小说 ID" />,
+        accessorKey: "novelName",
+        header: ({ column }) => <DataTableColumnHeader column={column} title="所属小说" />,
         cell: ({ row }) => (
-          <span className="text-muted-foreground font-mono text-xs">{row.original.novelId || "-"}</span>
+          <span className="text-muted-foreground font-mono text-xs">{row.original.novelName || "-"}</span>
         ),
       },
       {

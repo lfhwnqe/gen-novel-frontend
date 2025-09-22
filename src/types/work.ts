@@ -31,6 +31,7 @@ export interface Outline {
 export interface Character {
   characterId: string;
   novelId?: string;
+  novelName?: string;
   name: string;
   role?: string;
   traits?: string[] | string;
@@ -49,4 +50,9 @@ export interface CreateWorkDto {
   title: string;
   description?: string;
   status?: WorkStatus;
+}
+
+export enum TaskType {
+  SCENARIO_OUTLINE = "scenario-outline",
+  WORLDBUILDING = "worldbuilding",
 }
