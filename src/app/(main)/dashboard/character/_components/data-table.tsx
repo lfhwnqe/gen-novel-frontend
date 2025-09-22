@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search, SlidersHorizontal, Plus, EllipsisVertical, RefreshCcw } from "lucide-react";
+import { Search, SlidersHorizontal, Plus, EllipsisVertical, RefreshCcw, FileText } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 
@@ -23,6 +23,7 @@ import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { QueryActionBar } from "@/components/layouts/query-action-bar";
 import { useFetchWithAuth } from "@/utils/fetch-with-auth";
 import { Character } from "@/types/work";
+import { CharacterDetailDialog } from "./character-detail-dialog";
 
 import { CreateCharacterDialog } from "./create-product-dialog";
 import { EditCharacterDialog } from "./edit-work-dialog";
@@ -65,6 +66,10 @@ export function CharacterDataTable({
   const [editOpen, setEditOpen] = React.useState(false);
   const [currentCharacter, setCurrentCharacter] = React.useState<Character | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
+  const [detailLoading, setDetailLoading] = React.useState(false);
+  const [detailData, setDetailData] = React.useState<Character | null>(null);
+  const [detailError, setDetailError] = React.useState<string | null>(null);
 
   const columns = React.useMemo<ColumnDef<Character>[]>(
     () => [
@@ -162,7 +167,39 @@ export function CharacterDataTable({
                 <span className="sr-only">打开操作菜单</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-32">
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem
+                onClick={async () => {
+                  setDetailError(null);
+                  setDetailOpen(true);
+                  setDetailLoading(true);
+                  setDetailData(row.original);
+                  try {
+                    const res = await fetchWithAuth(`/api/v1/novels/characters/${row.original.characterId}`, {
+                      method: "GET",
+                    });
+                    if (!res.ok) {
+                      const err = await res.json().catch(() => ({}) as any);
+                      const message =
+                        err?.message?.message || err?.message || `获取详情失败: ${res.status} ${res.statusText}`;
+                      throw new Error(message);
+                    }
+                    const json = await res.json().catch(() => null);
+                    const data =
+                      json && typeof json === "object" && "success" in json && "data" in json
+                        ? (json.data as Character)
+                        : (json as Character);
+                    setDetailData(data);
+                  } catch (err: any) {
+                    setDetailData(null);
+                    setDetailError(err?.message || "获取详情失败");
+                  } finally {
+                    setDetailLoading(false);
+                  }
+                }}
+              >
+                <FileText className="mr-2 h-4 w-4" /> 查看详情
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
                   setCurrentCharacter(row.original);
@@ -348,6 +385,18 @@ export function CharacterDataTable({
           }
         />
       </div>
+
+      <CharacterDetailDialog
+        open={detailOpen}
+        loading={detailLoading}
+        character={detailData}
+        error={detailError}
+        onClose={() => {
+          setDetailOpen(false);
+          setDetailData(null);
+          setDetailError(null);
+        }}
+      />
 
       <CreateCharacterDialog
         open={createOpen}

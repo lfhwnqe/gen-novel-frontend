@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useFetchWithAuth } from "@/utils/fetch-with-auth";
 
+import { NovelSelect } from "./novel-select";
+
 const schema = z.object({
   name: z.string({ required_error: "角色名称不能为空" }).min(1, "请输入角色名称"),
   role: z.string().max(200, "角色定位请不要超过200个字符").optional().or(z.literal("")),
@@ -251,7 +253,11 @@ export function CreateCharacterDialog({
                 <FormItem>
                   <FormLabel>所属小说 ID（可选）</FormLabel>
                   <FormControl>
-                    <Input placeholder="输入关联的小说 ID" {...field} value={field.value ?? ""} />
+                    <NovelSelect
+                      value={field.value ? field.value : undefined}
+                      onChange={(val) => field.onChange(val ?? "")}
+                      open={open}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
