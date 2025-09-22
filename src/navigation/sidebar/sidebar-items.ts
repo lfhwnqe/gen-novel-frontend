@@ -75,6 +75,12 @@ const baseSidebarItems: NavGroup[] = [
         icon: ListChecks,
         roles: [Role.ADMIN, Role.SUPER_ADMIN], // 只有管理员可以访问
       },
+      {
+        title: "角色管理",
+        url: "/dashboard/character",
+        icon: ListChecks,
+        roles: [Role.ADMIN, Role.SUPER_ADMIN], // 只有管理员可以访问
+      },
       // {
       //   title: "CRM",
       //   url: "/dashboard/crm",
