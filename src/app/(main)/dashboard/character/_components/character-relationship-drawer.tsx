@@ -237,8 +237,8 @@ export function CharacterRelationshipDrawer({
                         <span>变更后关系：{item.newRelType || "-"}</span>
                         <span>关联章节：{item.chapterId || "-"}</span>
                         <span>关联场景：{item.sceneId || "-"}</span>
-                        <span>记录小说：{item.novelId || "-"}</span>
-                        <span>记录人：{item.createdBy || "-"}</span>
+                        <span>记录小说：{item.novelName || "-"}</span>
+                        <span>记录人：{item.createdByName || "-"}</span>
                         <span>记录时间：{formatDateTime(item.createdAt)}</span>
                       </div>
                       {item.reason?.trim() ? (

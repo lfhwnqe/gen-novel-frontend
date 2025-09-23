@@ -76,9 +76,11 @@ export interface CharacterRelationshipHistoryEvent {
   chapterId?: string;
   sceneId?: string;
   novelId?: string;
+  novelName?: string;
   occurredAt?: string;
   createdAt?: string;
   createdBy?: string;
+  createdByName?: string;
   ownerAId?: string;
   ownerBId?: string;
   notes?: string;
