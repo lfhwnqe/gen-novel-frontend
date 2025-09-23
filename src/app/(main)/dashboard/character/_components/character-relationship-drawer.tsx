@@ -173,94 +173,99 @@ export function CharacterRelationshipDrawer({
 
   return (
     <Drawer direction="right" open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="sm:max-w-xl">
-        <DrawerHeader>
+      <DrawerContent className="flex h-full flex-col sm:max-w-xl">
+        <DrawerHeader className="shrink-0 px-6">
           <DrawerTitle>角色关系详情</DrawerTitle>
         </DrawerHeader>
-        <div className="flex flex-col gap-4 px-6 py-4">
-          <div className="text-muted-foreground text-sm">
-            当前角色：{currentCharacterName}（ID：{currentCharacterId}）
-            <br />
-            关联角色：{relatedCharacterName || relatedCharacterId}（ID：{relatedCharacterId}）
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-muted-foreground text-xs">
-              共 {total} 条记录，当前第 {currentPage} 页
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
-                <RefreshCcw className="mr-2 h-4 w-4" /> 刷新
-              </Button>
-              <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
-                <SelectTrigger className="h-8 w-24">
-                  <SelectValue placeholder="每页数量" />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  {[5, 10, 20, 50].map((option) => (
-                    <SelectItem key={option} value={String(option)}>
-                      每页 {option}
-                    </SelectItem>
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="flex flex-col gap-4">
+              <div className="text-muted-foreground text-sm">
+                当前角色：{currentCharacterName}（ID：{currentCharacterId}）
+                <br />
+                关联角色：{relatedCharacterName || relatedCharacterId}（ID：{relatedCharacterId}）
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-muted-foreground text-xs">
+                  共 {total} 条记录，当前第 {currentPage} 页
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
+                    <RefreshCcw className="mr-2 h-4 w-4" /> 刷新
+                  </Button>
+                  <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+                    <SelectTrigger className="h-8 w-24">
+                      <SelectValue placeholder="每页数量" />
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      {[5, 10, 20, 50].map((option) => (
+                        <SelectItem key={option} value={String(option)}>
+                          每页 {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {isLoading && !relationships.length ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((item) => (
+                    <div key={item} className="space-y-2 rounded-md border p-4">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-3/5" />
+                      <Skeleton className="h-4 w-2/5" />
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              ) : error ? (
+                <div className="text-destructive text-sm">{error.message}</div>
+              ) : relationships.length ? (
+                <div className="space-y-3">
+                  {relationships.map((item) => (
+                    <div key={item.eventId} className="space-y-3 rounded-md border p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{item.newRelType || item.prevRelType || "未标记"}</Badge>
+                          <span className="text-muted-foreground text-xs">事件 ID：{item.eventId}</span>
+                        </div>
+                        <span className="text-muted-foreground text-xs">
+                          发生时间：{formatDateTime(item.occurredAt)}
+                        </span>
+                      </div>
+                      <div className="text-muted-foreground grid gap-1 text-sm">
+                        <span>配对键：{item.pairKey}</span>
+                        <span>变更前关系：{item.prevRelType || "-"}</span>
+                        <span>变更后关系：{item.newRelType || "-"}</span>
+                        <span>关联章节：{item.chapterId || "-"}</span>
+                        <span>关联场景：{item.sceneId || "-"}</span>
+                        <span>记录小说：{item.novelId || "-"}</span>
+                        <span>记录人：{item.createdBy || "-"}</span>
+                        <span>记录时间：{formatDateTime(item.createdAt)}</span>
+                      </div>
+                      {item.reason?.trim() ? (
+                        <div className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-sm">
+                          <span className="text-foreground font-medium">变更原因：</span>
+                          <br />
+                          {item.reason}
+                        </div>
+                      ) : null}
+                      {item.notes?.trim() ? (
+                        <div className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-sm">
+                          <span className="text-foreground font-medium">备注：</span>
+                          <br />
+                          {item.notes}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-muted-foreground text-sm">暂无历史关系记录。</div>
+              )}
             </div>
           </div>
-
-          {isLoading && !relationships.length ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((item) => (
-                <div key={item} className="space-y-2 rounded-md border p-4">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-3/5" />
-                  <Skeleton className="h-4 w-2/5" />
-                </div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="text-destructive text-sm">{error.message}</div>
-          ) : relationships.length ? (
-            <div className="space-y-3">
-              {relationships.map((item) => (
-                <div key={item.eventId} className="space-y-3 rounded-md border p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{item.newRelType || item.prevRelType || "未标记"}</Badge>
-                      <span className="text-muted-foreground text-xs">事件 ID：{item.eventId}</span>
-                    </div>
-                    <span className="text-muted-foreground text-xs">发生时间：{formatDateTime(item.occurredAt)}</span>
-                  </div>
-                  <div className="text-muted-foreground grid gap-1 text-sm">
-                    <span>配对键：{item.pairKey}</span>
-                    <span>变更前关系：{item.prevRelType || "-"}</span>
-                    <span>变更后关系：{item.newRelType || "-"}</span>
-                    <span>关联章节：{item.chapterId || "-"}</span>
-                    <span>关联场景：{item.sceneId || "-"}</span>
-                    <span>记录小说：{item.novelId || "-"}</span>
-                    <span>记录人：{item.createdBy || "-"}</span>
-                    <span>记录时间：{formatDateTime(item.createdAt)}</span>
-                  </div>
-                  {item.reason?.trim() ? (
-                    <div className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-sm">
-                      <span className="text-foreground font-medium">变更原因：</span>
-                      <br />
-                      {item.reason}
-                    </div>
-                  ) : null}
-                  {item.notes?.trim() ? (
-                    <div className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-sm">
-                      <span className="text-foreground font-medium">备注：</span>
-                      <br />
-                      {item.notes}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-muted-foreground text-sm">暂无历史关系记录。</div>
-          )}
-
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-6 py-3 text-sm">
             <div className="text-muted-foreground text-xs">
               第 {currentPage} / {Math.max(totalPages, 1)} 页
             </div>
@@ -279,7 +284,7 @@ export function CharacterRelationshipDrawer({
             </div>
           </div>
         </div>
-        <DrawerFooter>
+        <DrawerFooter className="shrink-0 border-t px-6 py-4">
           <DrawerClose asChild>
             <Button variant="outline">关闭</Button>
           </DrawerClose>
