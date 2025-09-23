@@ -173,7 +173,7 @@ export function CharacterRelationshipDrawer({
 
   return (
     <Drawer direction="right" open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="flex h-full flex-col sm:max-w-xl">
+      <DrawerContent className="flex h-full min-w-[280px] flex-col sm:max-w-2xl sm:min-w-[640px]">
         <DrawerHeader className="shrink-0 px-6">
           <DrawerTitle>角色关系详情</DrawerTitle>
         </DrawerHeader>
@@ -181,9 +181,9 @@ export function CharacterRelationshipDrawer({
           <div className="flex-1 overflow-y-auto px-6 py-4">
             <div className="flex flex-col gap-4">
               <div className="text-muted-foreground text-sm">
-                当前角色：{currentCharacterName}（ID：{currentCharacterId}）
+                当前角色：{currentCharacterName}
                 <br />
-                关联角色：{relatedCharacterName || relatedCharacterId}（ID：{relatedCharacterId}）
+                关联角色：{relatedCharacterName || relatedCharacterId}
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-muted-foreground text-xs">
@@ -227,14 +227,12 @@ export function CharacterRelationshipDrawer({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary">{item.newRelType || item.prevRelType || "未标记"}</Badge>
-                          <span className="text-muted-foreground text-xs">事件 ID：{item.eventId}</span>
                         </div>
                         <span className="text-muted-foreground text-xs">
                           发生时间：{formatDateTime(item.occurredAt)}
                         </span>
                       </div>
                       <div className="text-muted-foreground grid gap-1 text-sm">
-                        <span>配对键：{item.pairKey}</span>
                         <span>变更前关系：{item.prevRelType || "-"}</span>
                         <span>变更后关系：{item.newRelType || "-"}</span>
                         <span>关联章节：{item.chapterId || "-"}</span>
