@@ -321,7 +321,9 @@ export function CharacterDetailDialog({ open, loading, character, error, onClose
             open={relationshipDrawerOpen}
             onOpenChange={handleRelationshipDrawerOpenChange}
             currentCharacterId={character.characterId}
+            currentCharacterName={character.name}
             relatedCharacterId={selectedRelationship.characterId}
+            relatedCharacterName={selectedRelationship.name}
           />
         ) : null}
       </DialogContent>

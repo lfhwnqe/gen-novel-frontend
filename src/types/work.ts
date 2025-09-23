@@ -65,6 +65,25 @@ export interface CharacterRelationshipCurrent {
   ownerBId?: string;
 }
 
+export interface CharacterRelationshipHistoryEvent {
+  pairKey: string;
+  eventId: string;
+  characterAId: string;
+  characterBId: string;
+  prevRelType?: string;
+  newRelType?: string;
+  reason?: string;
+  chapterId?: string;
+  sceneId?: string;
+  novelId?: string;
+  occurredAt?: string;
+  createdAt?: string;
+  createdBy?: string;
+  ownerAId?: string;
+  ownerBId?: string;
+  notes?: string;
+}
+
 export interface WorkDetailResponse {
   work: Work;
 }
