@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { useFetchWithAuth } from "@/utils/fetch-with-auth";
 import { Character, CharacterRelationshipEdge } from "@/types/work";
 
+import { CharacterRelationshipDrawer } from "./character-relationship-drawer";
+
 interface CharacterDetailDialogProps {
   open: boolean;
   loading: boolean;
@@ -91,6 +93,8 @@ export function CharacterDetailDialog({ open, loading, character, error, onClose
   const fetchWithAuth = useFetchWithAuth();
   const [relationTypeDraft, setRelationTypeDraft] = React.useState("");
   const [relationTypeFilter, setRelationTypeFilter] = React.useState<string | undefined>(undefined);
+  const [relationshipDrawerOpen, setRelationshipDrawerOpen] = React.useState(false);
+  const [selectedRelationship, setSelectedRelationship] = React.useState<CharacterRelationshipEdge | null>(null);
 
   React.useEffect(() => {
     if (open) {
@@ -98,6 +102,18 @@ export function CharacterDetailDialog({ open, loading, character, error, onClose
       setRelationTypeFilter(undefined);
     }
   }, [open, character?.characterId]);
+
+  React.useEffect(() => {
+    if (!open) {
+      setRelationshipDrawerOpen(false);
+      setSelectedRelationship(null);
+    }
+  }, [open]);
+
+  React.useEffect(() => {
+    setRelationshipDrawerOpen(false);
+    setSelectedRelationship(null);
+  }, [character?.characterId]);
 
   const relationshipsKey =
     open && character ? ["character-relationships", character.characterId, relationTypeFilter ?? ""] : null;
@@ -139,6 +155,18 @@ export function CharacterDetailDialog({ open, loading, character, error, onClose
   const handleRelationReset = () => {
     setRelationTypeDraft("");
     setRelationTypeFilter(undefined);
+  };
+
+  const handleRelationshipItemClick = (item: CharacterRelationshipEdge) => {
+    setSelectedRelationship(item);
+    setRelationshipDrawerOpen(true);
+  };
+
+  const handleRelationshipDrawerOpenChange = (drawerOpen: boolean) => {
+    setRelationshipDrawerOpen(drawerOpen);
+    if (!drawerOpen) {
+      setSelectedRelationship(null);
+    }
   };
 
   return (
@@ -260,14 +288,19 @@ export function CharacterDetailDialog({ open, loading, character, error, onClose
               ) : relationships.length ? (
                 <div className="space-y-3">
                   {relationships.map((item) => (
-                    <div key={`${item.characterId}-${item.relationType}`} className="rounded-md border p-4">
+                    <button
+                      key={`${item.characterId}-${item.relationType}`}
+                      type="button"
+                      onClick={() => handleRelationshipItemClick(item)}
+                      className="hover:bg-muted focus-visible:ring-ring rounded-md border p-4 text-left transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                    >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary">{item.relationType || "未标记"}</Badge>
                           <span className="font-medium">对方角色：{item.name || item.characterId}</span>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -283,6 +316,14 @@ export function CharacterDetailDialog({ open, loading, character, error, onClose
             关闭
           </Button>
         </DialogFooter>
+        {character && selectedRelationship ? (
+          <CharacterRelationshipDrawer
+            open={relationshipDrawerOpen}
+            onOpenChange={handleRelationshipDrawerOpenChange}
+            currentCharacterId={character.characterId}
+            relatedCharacterId={selectedRelationship.characterId}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
